@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      # dsh installs plugins with pnpm; the smoke test needs it.
+      - run: npm install -g pnpm@10
 
       - name: Manifest, display metadata and packed files
         run: npm test
