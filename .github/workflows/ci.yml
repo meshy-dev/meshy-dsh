@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Manifest, display metadata and packed files
+        run: npm test
+
+      - name: Skills match the pinned meshy-3d-agent release
+        run: node scripts/sync-skills.mjs --check
+
+      # Packs the bundle, installs it into a throwaway dsh profile and boots dsh to
+      # confirm both skills load. No model call, no Meshy API call.
+      - name: Load the skills in a real DeepSeek Harness
+        run: node scripts/smoke.mjs

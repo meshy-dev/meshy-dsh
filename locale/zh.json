@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Meshy",
+    "description": "用 Meshy 从文字或图片生成带贴图、绑骨和动画的 3D 模型，或可直接打印的文件。agent 通过 meshy-cli 完成，文件直接保存到你的项目里。"
+  }
+}

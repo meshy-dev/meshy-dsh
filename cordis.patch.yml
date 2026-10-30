@@ -1,0 +1,12 @@
+# A configuration-only bundle: one more instance of dsh's own filesystem skill
+# provider, scanning only this package's skills/. The path is resolved from
+# wherever the package is installed (npm, GitHub or a local checkout).
+- insert:
+    - id: meshy
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: meshy
+        includeDefaultRoots: false
+        watch: false
+        customSkillDirs:
+          - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('meshy-dsh/package.json'), '..', 'skills')"

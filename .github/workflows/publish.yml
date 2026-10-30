@@ -1,0 +1,55 @@
+name: publish
+
+# A published GitHub Release ships its tag to npm through trusted publishing (OIDC,
+# no token), with provenance. npm can only trust a package that exists, so the first
+# release publishes with the NPM_TOKEN secret; then set package Settings → Trusted
+# Publisher → GitHub Actions (meshy-dev/meshy-dsh, publish.yml) and delete the secret.
+on:
+  release:
+    types: [published]
+  # Re-run for an existing tag, since a Release fires `published` only once.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish, e.g. v0.1.0"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or newer; Node 22 bundles npm 10.
+      - run: npm install -g npm@11
+
+      - name: package.json version matches the tag
+        env:
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "v$VERSION" != "$TAG" ]; then
+            echo "::error::package.json is $VERSION but the tag is $TAG. Bump package.json and CHANGELOG.md first."
+            exit 1
+          fi
+
+      - run: npm test
+      - run: node scripts/sync-skills.mjs --check
+      - run: node scripts/smoke.mjs
+
+      # npm accepts the tarball before it is installable, so a green run is not yet "live":
+      # confirm against https://registry.npmjs.org/meshy-dsh afterwards.
+      - run: npm publish --provenance
+        env:
+          # Unused once trusted publishing is configured: npm prefers OIDC.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
