@@ -26,8 +26,16 @@ type Ctx = {
   slots: { inject(name: string, register: () => () => void): () => void; register(spec: object, component: unknown): () => void }
   locale: { register(ns: string, dicts: object): () => void; bind(ns: string): T }
   documentPreviews: { register(definition: object): () => void }
+  remote: { workspaceFiles: WorkspaceFiles }
   effect(execute: () => () => unknown, label?: string): unknown
   inject(deps: string[], callback: (ctx: Ctx) => void): unknown
+}
+
+// dsh's workspace file Remote: a call never rejects, the result carries the failure.
+type Result<T> = { ok: true; value: T } | { ok: false; error: { code: string; message?: string; details?: { limit?: number } } }
+type WorkspaceFiles = {
+  readBytes(sessionId: string, path: string, options: { range: { offset: number; length: number } }, signal: AbortSignal):
+    Promise<Result<{ data: Uint8Array; eof: boolean; bytes?: number; version: string }>>
 }
 
 export const name = 'meshy-dsh-client'
@@ -35,6 +43,12 @@ export const inject = ['slots', 'locale']
 
 const NS = 'meshy'
 const GLB_ID = 'meshy-dsh/glb'
+/**
+ * dsh refuses a complete-file read above 32 MiB (`maxFileBytes`), so the preview reads 2 MiB
+ * windows (`maxBytes`, the per-window cap) and stops at its own limit instead.
+ */
+const WINDOW = 2 << 20
+const MAX_GLB = 256 << 20
 /** The left-sidebar entry and its page in the main column share this id. */
 const PAGE_ID = 'meshy'
 const EXAMPLES = ['chest', 'photo', 'character', 'print'] as const
@@ -81,7 +95,9 @@ const en = {
   'site.cn': 'China',
   credits: 'Credits',
   'credits.get': 'Get credits',
-  account: 'Account',
+  method: 'Signed in with',
+  'method.browser': 'Browser',
+  'method.apiKey': 'API key',
   more: 'Manage account',
   signIn: 'Sign in to Meshy',
   'signIn.hint': 'Approve in your browser once; the Meshy skills then use this sign-in.',
@@ -108,6 +124,7 @@ const en = {
   'viewer.title': '3D model',
   'viewer.loading': 'Loading model…',
   'viewer.failed': 'This model cannot be shown',
+  'viewer.tooLarge': 'The model is {size}, over the {limit} preview limit. Remesh it to fewer faces to preview it.',
   'viewer.triangles': '{count} triangles',
   'viewer.reset': 'Reset view',
   'viewer.spin': 'Auto-rotate',
@@ -143,7 +160,9 @@ const zh: typeof en = {
   'site.cn': '中国站',
   credits: '积分',
   'credits.get': '获取积分',
-  account: '账号',
+  method: '登录方式',
+  'method.browser': '浏览器登录',
+  'method.apiKey': 'API key',
   more: '管理账号',
   signIn: '登录 Meshy',
   'signIn.hint': '在浏览器里批准一次，Meshy 技能之后都会使用这个登录。',
@@ -170,6 +189,7 @@ const zh: typeof en = {
   'viewer.title': '3D 模型',
   'viewer.loading': '正在加载模型…',
   'viewer.failed': '无法显示这个模型',
+  'viewer.tooLarge': '模型有 {size}，超过 {limit} 的预览上限。减面后再预览。',
   'viewer.triangles': '{count} 个三角面',
   'viewer.reset': '重置视角',
   'viewer.spin': '自动旋转',
@@ -268,7 +288,7 @@ if (typeof document !== 'undefined' && !document.querySelector('style[data-plugi
   document.head.append(tag)
 }
 
-type Auth = { authenticated: boolean; verified: boolean; source: string | null; credential: string | null; region: Site; balance: number | null }
+type Auth = { authenticated: boolean; verified: boolean; method: 'browser' | 'apiKey' | null; region: Site; balance: number | null }
 type Status = { cli: { version: string; runner: string } | null; error?: string; auth?: Auth }
 type Flow = { verification_url: string; user_code: string; flow_id: string; expires_in?: number }
 type Problem = { kind: 'cli' | 'expired' | 'generic'; message?: string }
@@ -442,8 +462,8 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
               </div>
               <div className="meshy-divider" />
               <div className="meshy-row">
-                <span>{t('account')}</span>
-                <span className="meshy-muted">{auth!.credential ?? auth!.source ?? '—'}</span>
+                <span>{t('method')}</span>
+                <span className="meshy-muted">{auth!.method ? t(`method.${auth!.method}`) : '—'}</span>
               </div>
               <div className="meshy-divider" />
               <div className="meshy-row">
@@ -582,32 +602,98 @@ function MeshyPage({ t }: { t: T }) {
   )
 }
 
-/** The keyed `sidebar.right.tab.document` body for .glb, fed the file's complete bytes. */
-function GlbBody({ content, t }: { content: { kind: string; data?: Uint8Array }; t: T }) {
+let workspaceFiles: WorkspaceFiles | undefined
+
+class TooLarge extends Error {
+  constructor(readonly size: number) { super('too large') }
+}
+
+/** A preview tab's `dsh-resource://file/session/<id>/<path>` address (dsh-util-workspace-path's grammar). */
+function sessionFileOf(address: string) {
+  const m = /^dsh-resource:\/\/file\/session\/([^/?#]+)\/([^?#]+)/.exec(address)
+  return m ? { sessionId: decodeURIComponent(m[1]), path: m[2].split('/').map(decodeURIComponent).join('/') } : undefined
+}
+
+/** Read the whole file window by window; a change mid-read starts over on the new version. */
+async function readWindows(address: string, signal: AbortSignal, progress: (read: number, total: number) => void) {
+  const file = sessionFileOf(address)
+  if (!file || !workspaceFiles) throw new Error(`cannot read ${address}`)
+  let chunks: Uint8Array[] = []
+  let offset = 0
+  let version: string | undefined
+  let length = WINDOW
+  for (;;) {
+    const res = await workspaceFiles.readBytes(file.sessionId, file.path, { range: { offset, length } }, signal)
+    signal.throwIfAborted()
+    if (!res.ok) {
+      // A host configured with smaller windows names its cap.
+      const limit = res.error.details?.limit
+      if (res.error.code === 'workspace-file/too-large' && limit && limit < length) { length = limit; continue }
+      throw new Error(res.error.message ?? res.error.code)
+    }
+    const w = res.value
+    if (version !== undefined && w.version !== version) { chunks = []; offset = 0; version = undefined; continue }
+    version = w.version
+    if ((w.bytes ?? 0) > MAX_GLB) throw new TooLarge(w.bytes!)
+    chunks.push(w.data)
+    offset += w.data.byteLength
+    if (offset > MAX_GLB) throw new TooLarge(offset)
+    progress(offset, w.bytes ?? offset)
+    if (w.eof || w.data.byteLength === 0) break
+  }
+  const data = new Uint8Array(offset)
+  let at = 0
+  for (const c of chunks) { data.set(c, at); at += c.byteLength }
+  return { data, version: version! }
+}
+
+type RendererContent = { kind: string; revision?: number; loaded?(version: string): void; failed?(): void }
+
+/** The keyed `sidebar.right.tab.document` body for .glb; it reads the file itself (renderer loading). */
+function GlbBody({ content, resourceAddress, t }: { content: RendererContent; resourceAddress: string; t: T }) {
   const host = useRef<HTMLDivElement>(null)
   const [viewer, setViewer] = useState<Viewer>()
   const [error, setError] = useState<string>()
   const [spinning, setSpinning] = useState(false)
+  const [size, setSize] = useState(0)
+  const [progress, setProgress] = useState<[number, number]>()
   useEffect(() => {
     const el = host.current
-    if (content.kind !== 'bytes' || !content.data || !el) return
+    if (content.kind !== 'renderer' || !el) return
+    const abort = new AbortController()
     let mounted: Viewer | undefined
-    let cancelled = false
     setError(undefined)
     setViewer(undefined)
     setSpinning(false)
-    require.async('./client.viewer.js')
-      .then((module) => module.mountViewer(el, content.data!))
-      .then((v) => { if (cancelled) v.dispose(); else { mounted = v; setViewer(v) } })
-      .catch((err) => { if (!cancelled) setError(String(err?.message ?? err)) })
-    return () => { cancelled = true; mounted?.dispose() }
-  }, [content])
+    setProgress(undefined)
+    readWindows(resourceAddress, abort.signal, (read, total) => setProgress([read, total]))
+      .then(async ({ data, version }) => {
+        const v = await (await require.async('./client.viewer.js')).mountViewer(el, data)
+        if (abort.signal.aborted) return v.dispose()
+        mounted = v
+        setSize(data.byteLength)
+        setViewer(v)
+        content.loaded?.(version)
+      })
+      .catch((err) => {
+        if (abort.signal.aborted) return
+        setError(err instanceof TooLarge
+          ? t('viewer.tooLarge', { size: fileSizeText(err.size), limit: fileSizeText(MAX_GLB) })
+          : String(err?.message ?? err))
+        content.failed?.()
+      })
+    return () => { abort.abort(); mounted?.dispose() }
+    // One read per revision: reload and implementation changes bump it.
+  }, [content.kind, content.revision, resourceAddress])
   const toggle = () => { viewer?.setAutoRotate(!spinning); setSpinning(!spinning) }
   return (
     <div className="meshy-root meshy-viewer">
       <div ref={host} className="meshy-stage" />
       {!viewer && !error && (
-        <div className="meshy-overlay meshy-muted"><Logo /><TextShimmer active>{t('viewer.loading')}</TextShimmer></div>
+        <div className="meshy-overlay meshy-muted">
+          <Logo /><TextShimmer active>{t('viewer.loading')}</TextShimmer>
+          {progress && progress[1] > WINDOW && <span className="meshy-small">{fileSizeText(progress[0])} / {fileSizeText(progress[1])}</span>}
+        </div>
       )}
       {error && (
         <div className="meshy-overlay" role="alert">
@@ -619,7 +705,7 @@ function GlbBody({ content, t }: { content: { kind: string; data?: Uint8Array };
       {viewer && (
         <div className="meshy-bar">
           <span className="meshy-chip">
-            {content.data ? `${fileSizeText(content.data.byteLength)} · ` : ''}{t('viewer.triangles', { count: viewer.triangles.toLocaleString() })}
+            {fileSizeText(size)} · {t('viewer.triangles', { count: viewer.triangles.toLocaleString() })}
           </span>
           <span className="meshy-tools">
             <Tooltip label={t('viewer.reset')} side="top">
@@ -664,14 +750,18 @@ export function apply(ctx: Ctx) {
     }, 'meshy-dsh: start a session from an example')
   })
   // Only where the document preview is mounted (the right sidebar of Web and Desktop).
-  ctx.inject(['documentPreviews', 'slots', 'locale'], (ctx) => {
+  ctx.inject(['documentPreviews', 'slots', 'locale', 'remote', 'remote.workspaceFiles'], (ctx) => {
+    ctx.effect(() => {
+      workspaceFiles = ctx.remote.workspaceFiles
+      return () => { workspaceFiles = undefined }
+    }, 'meshy-dsh: workspace file reads')
     ctx.effect(() => ctx.documentPreviews.register({
       id: GLB_ID,
       extensions: ['glb'],
       binaryExtensions: ['glb'],
       priority: 'extension',
       title: () => ctx.locale.bind(NS)('viewer.title'),
-      loading: 'bytes-complete',
+      loading: 'renderer',
     }), 'meshy-dsh: glb preview')
     ctx.effect(() => ctx.slots.inject('sidebar.right.tab.document', () => ctx.slots.register(
       { name: 'sidebar.right.tab.document', key: GLB_ID, locale: NS },
