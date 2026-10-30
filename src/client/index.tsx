@@ -3,7 +3,7 @@
 // host's seed table; three.js lives in the client.viewer.js chunk, fetched on first preview.
 // Layout follows dsh's own Account section (cards, rows, dividers, theme tokens); Meshy's lime
 // marks only the primary actions and the signed-in state.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
   Button, Modal, SegmentedControl, StateDot, TextShimmer, Tooltip, fileSizeText, writeClipboard,
   IconCheckOutlineRegular, IconChevronRightOutlineRegular, IconCopyOutlineRegular, IconPauseOutlineRegular, IconPlayOutlineRegular,
@@ -39,10 +39,32 @@ const GLB_ID = 'meshy-dsh/glb'
 const PAGE_ID = 'meshy'
 const EXAMPLES = ['chest', 'photo', 'character', 'print'] as const
 const SITES = {
-  global: { web: 'https://www.meshy.ai', host: 'meshy.ai' },
-  cn: { web: 'https://meshy.cn', host: 'meshy.cn' },
+  global: { web: 'https://www.meshy.ai', docs: 'https://docs.meshy.ai', host: 'meshy.ai' },
+  cn: { web: 'https://meshy.cn', docs: 'https://docs.meshy.cn', host: 'meshy.cn' },
 } as const
 type Site = keyof typeof SITES
+
+// Mainland China time zones: a viewer there most likely cannot open meshy.ai, so the China site
+// is the default until a signed-in account or the viewer's own choice says otherwise.
+const CN_ZONES = new Set(['Asia/Shanghai', 'Asia/Chongqing', 'Asia/Chungking', 'Asia/Harbin', 'Asia/Urumqi', 'Asia/Kashgar', 'PRC'])
+function guessSite(): Site {
+  try { return CN_ZONES.has(Intl.DateTimeFormat().resolvedOptions().timeZone) ? 'cn' : 'global' } catch { return 'global' }
+}
+// One site for every Meshy view on the page (settings, plugin page, sidebar page and its links).
+let currentSite: Site = guessSite()
+const siteListeners = new Set<() => void>()
+function setSite(next: Site) {
+  if (next === currentSite) return
+  currentSite = next
+  for (const notify of siteListeners) notify()
+}
+function useSite(): Site {
+  return useSyncExternalStore((notify) => { siteListeners.add(notify); return () => { siteListeners.delete(notify) } }, () => currentSite)
+}
+/** Docs in the reader's language on the global site; the China site serves Chinese by default. */
+function docsUrl(site: Site): string {
+  return site === 'global' && /^zh/i.test(globalThis.navigator?.language ?? '') ? `${SITES.global.docs}/zh` : SITES[site].docs
+}
 
 const en = {
   nav: 'Meshy',
@@ -306,13 +328,15 @@ function Alert({ children, action }: { children: React.ReactNode; action?: React
 
 function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
   const [status, setStatus] = useState<Status>()
-  const [site, setSite] = useState<Site>('global')
+  const site = useSite()
   const [flow, setFlow] = useState<Flow>()
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<Problem>()
   const [copied, setCopied] = useState(false)
   const [confirmOut, setConfirmOut] = useState(false)
   const polling = useRef(0)
+  // A signed-in account decides the site for every link on the page.
+  useEffect(() => { if (status?.auth?.authenticated) setSite(status.auth.region) }, [status])
 
   const refresh = useCallback(async () => {
     setStatus(undefined)
@@ -533,6 +557,7 @@ function ExampleCard({ t, id }: { t: T; id: (typeof EXAMPLES)[number] }) {
 
 /** The page the sidebar entry opens in the main column: the account card plus ways to start. */
 function MeshyPage({ t }: { t: T }) {
+  const site = useSite()
   return (
     <div className="meshy-root meshy-page">
       <div className="meshy-page-inner">
@@ -549,8 +574,8 @@ function MeshyPage({ t }: { t: T }) {
           <div className="meshy-grid">{EXAMPLES.map((id) => <ExampleCard key={id} t={t} id={id} />)}</div>
         </section>
         <footer className="meshy-links meshy-small">
-          <a className="meshy-textlink" href="https://docs.meshy.ai" target="_blank" rel="noreferrer">{t('page.docs')}<IconRightUpOutlineRegular size={12} /></a>
-          <a className="meshy-textlink" href="https://www.meshy.ai" target="_blank" rel="noreferrer">{t('page.site')}<IconRightUpOutlineRegular size={12} /></a>
+          <a className="meshy-textlink" href={docsUrl(site)} target="_blank" rel="noreferrer">{t('page.docs')}<IconRightUpOutlineRegular size={12} /></a>
+          <a className="meshy-textlink" href={SITES[site].web} target="_blank" rel="noreferrer">{t('page.site')}<IconRightUpOutlineRegular size={12} /></a>
         </footer>
       </div>
     </div>
