@@ -5,9 +5,12 @@
 ### Added
 
 - **Settings → Meshy** in Web and Desktop (also the plugin's page under Plugins): CLI version,
-  sign-in state, site and credits; sign in with a link and a QR code (two-step device flow, which
-  needs Meshy CLI 0.7.3 or later), sign out.
-- An interactive 3D preview for `.glb` files in the right sidebar, with three.js loaded on first use.
+  sign-in state, site and credits with a top-up link; sign in with a link, a QR code and a
+  copyable code, polled until approved or cancelled (two-step device flow, which needs Meshy CLI
+  0.7.3 or later); sign out after a confirmation. Built from dsh's own UI components and theme
+  tokens, so it follows the light and dark themes.
+- An interactive 3D preview for `.glb` files in the right sidebar, with three.js loaded on first use:
+  reset view, auto-rotate, file size and triangle count.
 - The package now carries code: a host half (`lib/index.js`, four authenticated routes running the
   CLI with fixed arguments, inactive in tui and headless) and a browser half built from
   `src/client/` with tsdown and committed under `lib/`; CI checks the build is current.

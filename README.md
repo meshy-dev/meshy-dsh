@@ -31,9 +31,10 @@ exported `MESHY_API_KEY` does not reach the CLI; the browser login does.
 
 In Web and Desktop, **Settings → Meshy** (also the plugin's page under **Plugins**) shows the
 Meshy CLI version, whether you are signed in, which site (meshy.ai or meshy.cn) and your
-credits. **Sign in** shows the approval link with a QR code for your phone; approve, then press
-**I have approved**. Clicking a `.glb` file in the right sidebar, or the card of a model the agent
-delivers, opens an interactive 3D preview (drag to orbit, scroll to zoom). tui and headless have
+credits. **Sign in to Meshy** shows the approval link with a QR code for your phone and the code
+to check; the page picks up the approval by itself. Clicking a `.glb` file in the right sidebar, or
+the card of a model the agent delivers, opens an interactive 3D preview (drag to orbit, scroll to
+zoom, reset the view or let it turn) with its file size and triangle count. tui and headless have
 neither; the skills work the same everywhere.
 
 ## How it works

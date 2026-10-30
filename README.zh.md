@@ -18,7 +18,7 @@ dsh plugin --profile web add github:meshy-dev/meshy-dsh
 
 ## 设置页与 3D 预览
 
-在 Web 和 Desktop 里，**设置 → Meshy**（插件页里也有）会显示 Meshy CLI 版本、是否已登录、所在站点（meshy.ai 或 meshy.cn）和积分。点**登录**会显示批准链接和二维码，可以用手机扫码批准，批准后点**我已批准**。在右侧栏点一个 `.glb` 文件，或点 agent 交付的模型卡片，会打开可交互的 3D 预览（拖动旋转，滚轮缩放）。tui 和 headless 没有这些界面，skill 在任何界面都一样能用。
+在 Web 和 Desktop 里，**设置 → Meshy**（插件页里也有）会显示 Meshy CLI 版本、是否已登录、所在站点（meshy.ai 或 meshy.cn）和积分。点**登录 Meshy**会显示批准链接、二维码和核对用的验证码，可以用手机扫码批准，页面会自动发现批准完成。在右侧栏点一个 `.glb` 文件，或点 agent 交付的模型卡片，会打开可交互的 3D 预览（拖动旋转，滚轮缩放，可复位视角或自动旋转），并显示文件大小和三角面数。tui 和 headless 没有这些界面，skill 在任何界面都一样能用。
 
 ## 工作方式
 

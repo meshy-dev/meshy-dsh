@@ -6,8 +6,10 @@ import { readFileSync } from 'node:fs'
 import { defineConfig } from 'tsdown'
 
 const ID = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).name
-// The host's seed modules; everything else is bundled.
-const SEED = ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client']
+// The package icon, inlined so the settings card shows the same Meshy mark as the Plugins card.
+const ICON = `data:image/svg+xml;base64,${readFileSync(new URL('./icon.svg', import.meta.url)).toString('base64')}`
+// The host's seed modules (React and dsh's own component library); everything else is bundled.
+const SEED = ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives']
 
 const build = (file: string, entry: string, chunk: boolean) => defineConfig({
   entry: { [file]: entry },
@@ -18,6 +20,7 @@ const build = (file: string, entry: string, chunk: boolean) => defineConfig({
   dts: false,
   clean: false,
   minify: chunk,
+  define: { __MESHY_ICON__: JSON.stringify(ICON) },
   deps: { neverBundle: (id: string) => SEED.includes(id), alwaysBundle: (id: string) => !SEED.includes(id) },
   outputOptions: {
     entryFileNames: `${file}.js`,

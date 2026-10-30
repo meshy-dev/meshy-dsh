@@ -5,12 +5,20 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
+export type Viewer = {
+  /** Triangles across every mesh, as drawn. */
+  triangles: number
+  /** Back to the framed view the model opened with. */
+  reset(): void
+  setAutoRotate(on: boolean): void
+  dispose(): void
+}
+
 /**
  * Parse `data` and draw it inside `host`, framed to fit, on a transparent background so the
- * pane's own theme shows through. Redraws only when the view changes.
- * @returns a disposer that releases the GPU resources.
+ * pane's own theme shows through. Redraws only when the view changes or while auto-rotating.
  */
-export async function mountViewer(host: HTMLElement, data: Uint8Array): Promise<() => void> {
+export async function mountViewer(host: HTMLElement, data: Uint8Array): Promise<Viewer> {
   const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
   const gltf = await new GLTFLoader().parseAsync(buffer, '')
 
@@ -25,6 +33,12 @@ export async function mountViewer(host: HTMLElement, data: Uint8Array): Promise<
   scene.environment = environment
   scene.add(gltf.scene)
 
+  let triangles = 0
+  gltf.scene.traverse((node) => {
+    const geometry = (node as Mesh).isMesh ? (node as Mesh).geometry : undefined
+    if (geometry) triangles += (geometry.index?.count ?? geometry.attributes.position?.count ?? 0) / 3
+  })
+
   const box = new Box3().setFromObject(gltf.scene)
   const radius = box.getSize(new Vector3()).length() / 2 || 1
   const center = box.getCenter(new Vector3())
@@ -33,6 +47,7 @@ export async function mountViewer(host: HTMLElement, data: Uint8Array): Promise<
 
   const controls = new OrbitControls(camera, renderer.domElement)
   controls.target.copy(center)
+  controls.autoRotateSpeed = 1.5
   const draw = () => renderer.render(scene, camera)
   controls.addEventListener('change', draw)
   let moved = false
@@ -43,6 +58,7 @@ export async function mountViewer(host: HTMLElement, data: Uint8Array): Promise<
     const half = (camera.fov * Math.PI) / 360
     const narrow = Math.min(half, Math.atan(Math.tan(half) * camera.aspect))
     camera.position.copy(center).addScaledVector(direction, (radius / Math.sin(narrow)) * 1.1)
+    controls.target.copy(center)
     controls.update()
   }
   const resize = () => {
@@ -60,17 +76,30 @@ export async function mountViewer(host: HTMLElement, data: Uint8Array): Promise<
   observer.observe(host)
   resize()
 
-  return () => {
-    observer.disconnect()
-    controls.dispose()
-    gltf.scene.traverse((node) => {
-      const mesh = node as Mesh
-      mesh.geometry?.dispose()
-      for (const material of ([] as Material[]).concat(mesh.material ?? [])) material.dispose()
-    })
-    environment.dispose()
-    pmrem.dispose()
-    renderer.dispose()
-    renderer.domElement.remove()
+  let spin = 0
+  const tick = () => { controls.update(); spin = requestAnimationFrame(tick) }
+
+  return {
+    triangles: Math.round(triangles),
+    reset: () => { moved = false; frame(); draw() },
+    setAutoRotate: (on) => {
+      controls.autoRotate = on
+      cancelAnimationFrame(spin)
+      if (on) spin = requestAnimationFrame(tick)
+    },
+    dispose: () => {
+      cancelAnimationFrame(spin)
+      observer.disconnect()
+      controls.dispose()
+      gltf.scene.traverse((node) => {
+        const mesh = node as Mesh
+        mesh.geometry?.dispose()
+        for (const material of ([] as Material[]).concat(mesh.material ?? [])) material.dispose()
+      })
+      environment.dispose()
+      pmrem.dispose()
+      renderer.dispose()
+      renderer.domElement.remove()
+    },
   }
 }
