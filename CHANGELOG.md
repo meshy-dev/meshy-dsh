@@ -4,6 +4,8 @@
 
 ### Added
 
+- A **Meshy** entry in the left sidebar (the official mono mark) opens a Meshy page: the account
+  card and four example requests; picking one opens a new session with the request filled in.
 - **Settings → Meshy** in Web and Desktop (also the plugin's page under Plugins): CLI version,
   sign-in state, site and credits with a top-up link; sign in with a link, a QR code and a
   copyable code, polled until approved or cancelled (two-step device flow, which needs Meshy CLI

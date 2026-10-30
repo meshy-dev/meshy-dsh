@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Button, Modal, SegmentedControl, StateDot, TextShimmer, Tooltip, fileSizeText, writeClipboard,
-  IconCheckOutlineRegular, IconCopyOutlineRegular, IconPauseOutlineRegular, IconPlayOutlineRegular,
+  IconCheckOutlineRegular, IconChevronRightOutlineRegular, IconCopyOutlineRegular, IconPauseOutlineRegular, IconPlayOutlineRegular,
   IconRefreshOutlineRegular, IconRightUpOutlineRegular, IconWarningOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import qrcode from 'qrcode-generator'
@@ -16,10 +16,13 @@ import type { Viewer } from './viewer.ts'
 declare const require: { async(path: string): Promise<typeof import('./viewer.ts')> }
 /** The package icon as a data URL, inlined at build time. */
 declare const __MESHY_ICON__: string
+/** The media kit's black logo, cropped to the icon and drawn in currentColor (SVG markup). */
+declare const __MESHY_MONO__: string
 
 type T = (key: string, params?: Record<string, string | number>) => string
 // Partial projections of the dsh client services this file uses.
 type Ctx = {
+  uiWorkspace: { startSession(workspaceId?: string, options?: { prompt?: string; whenDraftExists?: 'keep' | 'replace' | 'append' }): void }
   slots: { inject(name: string, register: () => () => void): () => void; register(spec: object, component: unknown): () => void }
   locale: { register(ns: string, dicts: object): () => void; bind(ns: string): T }
   documentPreviews: { register(definition: object): () => void }
@@ -32,6 +35,9 @@ export const inject = ['slots', 'locale']
 
 const NS = 'meshy'
 const GLB_ID = 'meshy-dsh/glb'
+/** The left-sidebar entry and its page in the main column share this id. */
+const PAGE_ID = 'meshy'
+const EXAMPLES = ['chest', 'photo', 'character', 'print'] as const
 const SITES = {
   global: { web: 'https://www.meshy.ai', host: 'meshy.ai' },
   cn: { web: 'https://meshy.cn', host: 'meshy.cn' },
@@ -84,6 +90,21 @@ const en = {
   'viewer.reset': 'Reset view',
   'viewer.spin': 'Auto-rotate',
   'viewer.stop': 'Stop rotating',
+  'page.tagline': 'Turn text and images into 3D models, rig and animate them, or get them ready to print.',
+  'page.start': 'Start creating',
+  'page.startHint': 'Pick one to open a new session with it filled in. Edit it, then send.',
+  'page.copyHint': 'Copy one into a session, edit it, then send.',
+  'page.try': 'Start a session',
+  'page.docs': 'Documentation',
+  'page.site': 'Meshy website',
+  'example.chest.title': 'Game asset',
+  'example.chest.prompt': 'Make a low-poly cartoon treasure chest for my game and export it as GLB.',
+  'example.photo.title': 'Photo to 3D',
+  'example.photo.prompt': 'Turn the photo I attach into a textured 3D model.',
+  'example.character.title': 'Animated character',
+  'example.character.prompt': 'Create a cartoon knight, rig it, add a walking animation and export FBX.',
+  'example.print.title': '3D print',
+  'example.print.prompt': 'Make a 10 cm tall shiba inu figurine and prepare a print-ready 3MF.',
 }
 const zh: typeof en = {
   nav: 'Meshy',
@@ -131,6 +152,21 @@ const zh: typeof en = {
   'viewer.reset': '重置视角',
   'viewer.spin': '自动旋转',
   'viewer.stop': '停止旋转',
+  'page.tagline': '用文字或图片生成 3D 模型，绑骨做动画，或者准备好直接 3D 打印。',
+  'page.start': '开始创作',
+  'page.startHint': '选一个，会新开一个会话并填好需求，改一改再发送。',
+  'page.copyHint': '复制到会话里，改一改再发送。',
+  'page.try': '新开会话',
+  'page.docs': '文档',
+  'page.site': 'Meshy 官网',
+  'example.chest.title': '游戏资产',
+  'example.chest.prompt': '做一个低多边形的卡通宝箱，用在我的游戏里，导出 GLB。',
+  'example.photo.title': '照片转 3D',
+  'example.photo.prompt': '把我附上的这张照片做成带贴图的 3D 模型。',
+  'example.character.title': '动画角色',
+  'example.character.prompt': '生成一个卡通骑士，绑骨并加上走路动画，导出 FBX。',
+  'example.print.title': '3D 打印',
+  'example.print.prompt': '做一个 10 厘米高的柴犬手办，并准备好可以直接打印的 3MF。',
 }
 
 // Same delivery as dsh's own client plugins: one tagged <style>, added once. Theme tokens only,
@@ -181,6 +217,25 @@ body[data-ds-dark-theme] .meshy-root{--meshy-accent:#c5f955;--meshy-accent-hover
 .meshy-bar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none}
 .meshy-bar>*{pointer-events:auto}
 .meshy-chip{padding:2px 10px;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-bg-base) 80%,transparent);backdrop-filter:blur(8px);font-size:12px;line-height:20px;color:var(--dsw-alias-label-secondary)}
+.meshy-page{box-sizing:border-box;height:100%;overflow-y:auto}
+.meshy-page-inner{box-sizing:border-box;max-width:760px;margin:0 auto;padding:56px 32px 48px;display:flex;flex-direction:column;gap:32px}
+.meshy-hero{display:flex;align-items:center;gap:16px}
+.meshy-hero .meshy-logo{width:56px;height:56px;border-radius:14px}
+.meshy-hero h1{margin:0;font-size:24px;font-weight:600;line-height:32px;color:var(--dsw-alias-label-primary)}
+.meshy-h2{margin:0;font-size:15px;font-weight:500;line-height:24px}
+.meshy-block{display:flex;flex-direction:column;gap:12px}
+.meshy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.meshy-example{box-sizing:border-box;display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;margin:0;padding:14px 16px;border:.5px solid var(--dsw-alias-settings-card-stroke);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-settings-card-fill);color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;transition:background-color .15s,border-color .15s}
+.meshy-example:hover{background:var(--dsw-alias-interactive-bg-hover);border-color:color-mix(in srgb,var(--meshy-accent) 70%,transparent)}
+.meshy-example:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}
+.meshy-example-title{display:inline-flex;align-items:center;gap:8px;font-weight:500}
+.meshy-example-title::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--meshy-accent)}
+.meshy-example-cta{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:12px;color:var(--dsw-alias-label-tertiary)}
+.meshy-example:hover .meshy-example-cta{color:var(--dsw-alias-label-primary)}
+.meshy-links{display:flex;gap:16px}
+.meshy-textlink{display:inline-flex;align-items:center;gap:4px;color:var(--dsw-alias-label-secondary);text-decoration:none}
+.meshy-textlink:hover{color:var(--dsw-alias-label-primary)}
+.meshy-mark{display:inline-flex;flex:none}
 .meshy-tools{display:flex;gap:4px;padding:2px;border-radius:var(--dsw-radius-md);background:color-mix(in srgb,var(--dsw-alias-bg-base) 80%,transparent);backdrop-filter:blur(8px)}
 `
 if (typeof document !== 'undefined' && !document.querySelector('style[data-plugin-css="meshy-dsh/client.css"]')) {
@@ -335,13 +390,13 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
   return (
     <section className="meshy-root meshy-section" aria-label={t('nav')}>
       {!status ? (
-        <><Identity t={t} page={view === 'page'} line={t('tagline')} pill="checking" /><Skeleton /></>
+        <><Identity t={t} page={view === 'page'} line={t(view === 'page' ? 'summary' : 'tagline')} pill="checking" /><Skeleton /></>
       ) : (
         <>
           <Identity
             t={t}
             page={view === 'page'}
-            line={signedIn ? `${t(`site.${shownSite}`)} · ${SITES[shownSite].host}` : t('tagline')}
+            line={signedIn ? `${t(`site.${shownSite}`)} · ${SITES[shownSite].host}` : t(view === 'page' ? 'summary' : 'tagline')}
             pill={!status.cli ? 'off' : !signedIn ? 'off' : auth!.verified ? 'on' : 'warn'}
           />
 
@@ -450,6 +505,58 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
   )
 }
 
+/** Set while the workspace navigation service is mounted: opens a new session with the prompt filled in. */
+let startSession: ((prompt: string) => void) | undefined
+
+/** Left-sidebar icon: the host passes the edge size (18 expanded, 16 collapsed); colour follows the row. */
+function MeshySidebarIcon({ size = 16 }: { size?: number; active?: boolean }) {
+  return <span className="meshy-mark" aria-hidden="true" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: __MESHY_MONO__ }} />
+}
+
+function ExampleCard({ t, id }: { t: T; id: (typeof EXAMPLES)[number] }) {
+  const prompt = t(`example.${id}.prompt`)
+  const [copied, setCopied] = useState(false)
+  const run = async () => {
+    if (startSession) return startSession(prompt)
+    if (await writeClipboard(prompt)) { setCopied(true); setTimeout(() => setCopied(false), 1500) }
+  }
+  return (
+    <button type="button" className="meshy-example" onClick={run}>
+      <span className="meshy-example-title">{t(`example.${id}.title`)}</span>
+      <span className="meshy-muted">{prompt}</span>
+      <span className="meshy-example-cta">
+        {startSession ? <>{t('page.try')}<IconChevronRightOutlineRegular size={12} /></> : copied ? t('copied') : <>{t('copy')}<IconCopyOutlineRegular size={12} /></>}
+      </span>
+    </button>
+  )
+}
+
+/** The page the sidebar entry opens in the main column: the account card plus ways to start. */
+function MeshyPage({ t }: { t: T }) {
+  return (
+    <div className="meshy-root meshy-page">
+      <div className="meshy-page-inner">
+        <header className="meshy-hero">
+          <Logo />
+          <div className="meshy-copy"><h1>Meshy</h1><span className="meshy-muted">{t('page.tagline')}</span></div>
+        </header>
+        <MeshyPanel t={t} view="page" />
+        <section className="meshy-block" aria-labelledby="meshy-start">
+          <div className="meshy-copy">
+            <h2 id="meshy-start" className="meshy-h2">{t('page.start')}</h2>
+            <span className="meshy-muted">{t(startSession ? 'page.startHint' : 'page.copyHint')}</span>
+          </div>
+          <div className="meshy-grid">{EXAMPLES.map((id) => <ExampleCard key={id} t={t} id={id} />)}</div>
+        </section>
+        <footer className="meshy-links meshy-small">
+          <a className="meshy-textlink" href="https://docs.meshy.ai" target="_blank" rel="noreferrer">{t('page.docs')}<IconRightUpOutlineRegular size={12} /></a>
+          <a className="meshy-textlink" href="https://www.meshy.ai" target="_blank" rel="noreferrer">{t('page.site')}<IconRightUpOutlineRegular size={12} /></a>
+        </footer>
+      </div>
+    </div>
+  )
+}
+
 /** The keyed `sidebar.right.tab.document` body for .glb, fed the file's complete bytes. */
 function GlbBody({ content, t }: { content: { kind: string; data?: Uint8Array }; t: T }) {
   const host = useRef<HTMLDivElement>(null)
@@ -514,6 +621,23 @@ export function apply(ctx: Ctx) {
     { name: 'plugins.bundle.config', key: 'meshy-dsh', locale: NS },
     MeshyPanel,
   )), 'meshy-dsh: bundle page')
+  // The left-sidebar entry and its page; `layout` owns the main column the entry selects.
+  ctx.inject(['layout', 'slots', 'locale'], (ctx) => {
+    ctx.effect(() => ctx.slots.inject('main', () => ctx.slots.register(
+      { name: 'main', key: PAGE_ID, locale: NS },
+      MeshyPage,
+    )), 'meshy-dsh: page')
+    ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register(
+      { name: 'sidebar.panellist', id: PAGE_ID, order: 20, label: 'Meshy' },
+      MeshySidebarIcon,
+    )), 'meshy-dsh: sidebar entry')
+  })
+  ctx.inject(['uiWorkspace'], (ctx) => {
+    ctx.effect(() => {
+      startSession = (prompt) => ctx.uiWorkspace.startSession(undefined, { prompt, whenDraftExists: 'replace' })
+      return () => { startSession = undefined }
+    }, 'meshy-dsh: start a session from an example')
+  })
   // Only where the document preview is mounted (the right sidebar of Web and Desktop).
   ctx.inject(['documentPreviews', 'slots', 'locale'], (ctx) => {
     ctx.effect(() => ctx.documentPreviews.register({
