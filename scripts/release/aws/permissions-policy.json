@@ -5,7 +5,7 @@
       "Sid": "NpmToken",
       "Effect": "Allow",
       "Action": "secretsmanager:GetSecretValue",
-      "Resource": "arn:aws:secretsmanager:us-west-2:133081291590:secret:meshy-dsh/release/npm-token-*"
+      "Resource": "arn:aws:secretsmanager:us-west-2:133081291590:secret:meshy-dcc/release/npm-token-*"
     }
   ]
 }
