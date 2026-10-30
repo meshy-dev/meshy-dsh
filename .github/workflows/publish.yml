@@ -44,6 +44,11 @@ jobs:
             exit 1
           fi
 
+      - run: npm ci
+      # lib/client*.js is committed so a GitHub install needs no build; it must match src/.
+      - name: Built client matches its sources
+        run: npm run build && git diff --exit-code -- lib
+
       - run: npm test
       - run: node scripts/sync-skills.mjs --check
       - run: node scripts/smoke.mjs

@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0] - 2026-10-30
+
+### Added
+
+- A **Meshy** entry in the left sidebar (the official mono mark) opens a Meshy page: the account
+  card and four example requests; picking one opens a new session with the request filled in.
+- **Settings → Meshy** in Web and Desktop (also the plugin's page under Plugins): CLI version,
+  sign-in state, site and credits with a top-up link; sign in with a link, a QR code and a
+  copyable code, polled until approved or cancelled (two-step device flow, which needs Meshy CLI
+  0.7.3 or later); sign out after a confirmation. Built from dsh's own UI components and theme
+  tokens, so it follows the light and dark themes.
+- Links follow the site: a signed-in account's, else the viewer's choice, else the China site for a
+  mainland China time zone. China-site links go to meshy.cn, docs.meshy.cn and meshy.cn/pricing.
+- An interactive 3D preview for `.glb` files in the right sidebar, with three.js loaded on first use:
+  reset view, auto-rotate, file size and triangle count.
+- The package now carries code: a host half (`lib/index.js`, four authenticated routes running the
+  CLI with fixed arguments, inactive in tui and headless) and a browser half built from
+  `src/client/` with tsdown and committed under `lib/`; CI checks the build is current.
+
 ## [0.1.1] - 2026-10-30
 
 ### Changed

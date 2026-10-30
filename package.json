@@ -1,7 +1,7 @@
 {
   "name": "meshy-dsh",
-  "version": "0.1.1",
-  "description": "Meshy skills for DeepSeek Harness: textured, rigged and animated 3D models or print-ready files from text or images, through meshy-cli.",
+  "version": "0.2.0",
+  "description": "Meshy skills for DeepSeek Harness: textured, rigged and animated 3D models or print-ready files from text or images, through meshy-cli, with a Meshy settings page and a 3D preview for GLB files.",
   "keywords": [
     "dsh-plugin",
     "dsh",
@@ -24,10 +24,13 @@
   },
   "bugs": "https://github.com/meshy-dev/meshy-dsh/issues",
   "license": "MIT",
+  "type": "module",
   "publishConfig": {
     "access": "public"
   },
   "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
@@ -36,9 +39,11 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
+    "lib",
     "skills"
   ],
   "scripts": {
+    "build": "tsdown",
     "test": "node --test tests/*.test.mjs",
     "sync": "node scripts/sync-skills.mjs",
     "smoke": "node scripts/smoke.mjs"
@@ -49,6 +54,14 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
     }
+  },
+  "devDependencies": {
+    "qrcode-generator": "^2.0.4",
+    "three": "^0.187.0",
+    "tsdown": "^0.23.4"
   }
 }

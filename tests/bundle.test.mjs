@@ -1,7 +1,7 @@
-// This bundle is configuration only: its patch points dsh's filesystem skill
-// provider at the package's skills/. These checks cover what
-// dsh reads without running it: the manifest, display metadata and the packed
-// file list. No CLI or network needed.
+// The bundle's patch points dsh's filesystem skill provider at the package's skills/ and
+// loads the package's own row (lib/index.js and the browser half, lib/client.js). These
+// checks cover what dsh reads without running it: the manifest, display metadata, the
+// client module wrappers and the packed file list. No CLI or network needed.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -21,6 +21,21 @@ test("dsh package: the patch scans this package's own skills directory", async (
   assert.equal(pkg.exports["./package.json"], "./package.json");
 });
 
+test("dsh package: the browser half loads as this package's client module", async () => {
+  const patch = await readFile(new URL(pkg.dsh.bundle.patch, root), "utf8");
+  // dsh attaches a browser half only to the Loader row named after the bare package.
+  assert.match(patch, new RegExp(`name: '${pkg.name}'`));
+  assert.equal(pkg.dsh.client.platform, "web");
+  assert.equal(pkg.exports["."], "./lib/index.js");
+  assert.equal(pkg.exports["./client"], "./lib/client.js");
+  const entry = await readFile(new URL("lib/client.js", root), "utf8");
+  assert.ok(entry.startsWith(`window.__ModuleLoader__.load({ id: "${pkg.name}", factory:`), "lib/client.js wrapper");
+  assert.ok(entry.includes('require.async("./client.viewer.js")'), "the viewer chunk is loaded lazily");
+  const viewer = await readFile(new URL("lib/client.viewer.js", root), "utf8");
+  assert.ok(viewer.startsWith(`window.__ModuleLoader__.load({id:\`${pkg.name}\`,chunk:\`client.viewer.js\`,`), "lib/client.viewer.js wrapper");
+  assert.ok(!/require\("\.\//.test(entry + viewer), "outputs must not require each other synchronously");
+});
+
 test("dsh package: titles, descriptions and the icon for Plugin Manager", async () => {
   for (const locale of ["en", "zh"]) {
     const { meta } = JSON.parse(await readFile(new URL(`locale/${locale}.json`, root), "utf8"));
@@ -34,10 +49,10 @@ test("dsh package: titles, descriptions and the icon for Plugin Manager", async 
 test("dsh package: npm pack ships the patch, display resources and every skill file", () => {
   const [{ files }] = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: root, encoding: "utf8" }));
   const packed = new Set(files.map((f) => f.path));
-  for (const path of ["package.json", "cordis.patch.yml", "locale/en.json", "locale/zh.json", "icon.svg"]) {
+  for (const path of ["package.json", "cordis.patch.yml", "locale/en.json", "locale/zh.json", "icon.svg", "lib/index.js", "lib/client.js", "lib/client.viewer.js"]) {
     assert.ok(packed.has(path), `${path} is not packed`);
   }
-  assert.ok(![...packed].some((path) => /^(tests|scripts|\.github)\//.test(path)), "repository tooling must not ship");
+  assert.ok(![...packed].some((path) => /^(tests|scripts|src|\.github)\/|^tsdown\.config/.test(path)), "sources and repository tooling must not ship");
   for (const skill of SKILLS) {
     for (const ref of ["SKILL.md", "references/setup.md", "references/troubleshooting.md"]) {
       assert.ok(packed.has(`skills/${skill}/${ref}`), `skills/${skill}/${ref} is not packed`);
