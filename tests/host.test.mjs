@@ -14,7 +14,7 @@ const args = process.argv.slice(2).join(" ");
 require("node:fs").appendFileSync(${JSON.stringify(log)}, args + "\\n");
 const out = (o) => process.stdout.write(JSON.stringify(o));
 if (args === "--version") process.stdout.write("0.7.3\\n");
-else if (args.startsWith("auth status")) out({ ok: true, result: { authenticated: true, verified: true, source: "file", credential: "msy_****abcd", base_url_v1: "https://api.meshy.cn/openapi/v1", balance: { balance: 1085, monthly_credits: 1000 }, profiles: ["default"] } });
+else if (args.startsWith("auth status")) out({ ok: true, result: { authenticated: true, verified: true, source: "file", credential: "msy_at_U…abcd", base_url_v1: "https://api.meshy.cn/openapi/v1", balance: { balance: 1085, monthly_credits: 1000 }, profiles: ["default"] } });
 else if (args.startsWith("auth login --device --no-wait")) out({ ok: true, result: { status: "device_flow_started", verification_url: "https://www.meshy.ai/device?user_code=ABCD-1234", user_code: "ABCD-1234", flow_id: "AbCdEfGhIjKlMnOp", device_code: "SECRET-DEVICE-CODE", expires_in: 600 } });
 else if (args.startsWith("auth login --device-flow=")) out({ ok: true, result: { status: "logged_in" } });
 else if (args.startsWith("auth logout")) out({ ok: true, result: { status: "logged_out" } });
@@ -47,7 +47,7 @@ test("host: status reports the CLI, the account, the site and the credits, nothi
   const body = await (await status()).json();
   assert.deepEqual(body, {
     cli: { version: "0.7.3", runner: "meshy" },
-    auth: { authenticated: true, verified: true, source: "file", credential: "msy_****abcd", region: "cn", balance: 1085, hint: null },
+    auth: { authenticated: true, verified: true, method: "browser", region: "cn", balance: 1085, hint: null },
   });
 });
 

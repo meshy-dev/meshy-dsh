@@ -32,11 +32,13 @@ exported `MESHY_API_KEY` does not reach the CLI; the browser login does.
 In Web and Desktop, a **Meshy** entry appears in the left sidebar. It opens a Meshy page with your
 account and a few example requests: pick one and a new session opens with it filled in, ready to
 edit and send. **Settings → Meshy** (also the plugin's page under **Plugins**) shows the
-Meshy CLI version, whether you are signed in, which site (meshy.ai or meshy.cn) and your
-credits. **Sign in to Meshy** shows the approval link with a QR code for your phone and the code
+Meshy CLI version, whether and how you are signed in (browser or API key), which site (meshy.ai
+or meshy.cn) and your credits. **Sign in to Meshy** shows the approval link with a QR code for your phone and the code
 to check; the page picks up the approval by itself. Clicking a `.glb` file in the right sidebar, or
 the card of a model the agent delivers, opens an interactive 3D preview (drag to orbit, scroll to
-zoom, reset the view or let it turn) with its file size and triangle count. tui and headless have
+zoom, reset the view or let it turn) with its file size and triangle count. Models up to 256 MB
+open, past dsh's 32 MB limit for previewing a whole file, because the preview reads them in 2 MB
+pieces. tui and headless have
 neither; the skills work the same everywhere.
 
 ## How it works

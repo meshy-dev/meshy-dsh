@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1] - 2026-10-30
+
+### Fixed
+
+- The GLB preview opens models up to 256 MB. It read the whole file in one request, which dsh refuses
+  above 32 MB; it now reads 2 MB windows, shows progress while loading, starts over if the file
+  changes mid-read, and says when a model is over the limit.
+- The account card shows how you signed in (browser or API key) instead of the masked access
+  token, which was not an account name; the host no longer sends any part of the credential to
+  the page.
+
 ## [0.2.0] - 2026-10-30
 
 ### Added
