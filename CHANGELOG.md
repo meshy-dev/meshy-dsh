@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0] - 2026-10-30
+
+### Added
+
+- **Settings → Meshy** in Web and Desktop (also the plugin's page under Plugins): CLI version,
+  sign-in state, site and credits; sign in with a link and a QR code (two-step device flow, which
+  needs Meshy CLI 0.7.3 or later), sign out.
+- An interactive 3D preview for `.glb` files in the right sidebar, with three.js loaded on first use.
+- The package now carries code: a host half (`lib/index.js`, four authenticated routes running the
+  CLI with fixed arguments, inactive in tui and headless) and a browser half built from
+  `src/client/` with tsdown and committed under `lib/`; CI checks the build is current.
+
 ## [0.1.1] - 2026-10-30
 
 ### Changed

@@ -16,7 +16,8 @@ dsh plugin --profile web add github:meshy-dev/meshy-dsh
 ```
 
 `dsh --profile web --dump-config` now shows a `# == meshy-dsh` layer, and typing `/` in `dsh web`
-lists `meshy-3d-generation` and `meshy-3d-printing`. Then ask for a model, for example "make a
+lists `meshy-3d-generation` and `meshy-3d-printing` in a new session. Plugins belong to one
+profile: install into each one you use (`web`, `tui`, `desktop`). Then ask for a model, for example "make a
 low-poly treasure chest and export FBX". The agent checks the CLI, asks you to sign in if needed,
 shows the cost and waits for your confirmation before it spends credits.
 
@@ -26,11 +27,22 @@ when it is missing and signs you in with `meshy auth login`; in mainland China i
 calls on the China site. dsh removes credential-shaped variables from the agent's shell, so an
 exported `MESHY_API_KEY` does not reach the CLI; the browser login does.
 
+## Settings page and 3D preview
+
+In Web and Desktop, **Settings → Meshy** (also the plugin's page under **Plugins**) shows the
+Meshy CLI version, whether you are signed in, which site (meshy.ai or meshy.cn) and your
+credits. **Sign in** shows the approval link with a QR code for your phone; approve, then press
+**I have approved**. Clicking a `.glb` file in the right sidebar, or the card of a model the agent
+delivers, opens an interactive 3D preview (drag to orbit, scroll to zoom). tui and headless have
+neither; the skills work the same everywhere.
+
 ## How it works
 
-The package is configuration only. [`cordis.patch.yml`](cordis.patch.yml) mounts one more
-instance of dsh's built-in filesystem skill provider over this package's `skills/` directory, so
-the skills load like any local skill and the package runs no code. A skill of the same name in
+[`cordis.patch.yml`](cordis.patch.yml) mounts one more instance of dsh's built-in filesystem
+skill provider over this package's `skills/` directory, so the skills load like any local skill,
+and loads the package itself for the settings page: `lib/index.js` serves four authenticated
+routes that run the Meshy CLI with fixed arguments, and `lib/client.js` (built from `src/client/`)
+is the browser half, with three.js in a separate `lib/client.viewer.js` loaded on first use. A skill of the same name in
 your project's `.dsh/skills` or `.agents/skills` takes precedence. `locale/` and `icon.svg` are
 what dsh's Plugin Manager shows.
 
@@ -41,7 +53,8 @@ other agent host. Change them there.
 ## Development
 
 ```bash
-npm test                                            # manifest, display metadata, packed files
+npm ci && npm run build                             # rebuild lib/client*.js from src/client/ (committed)
+npm test                                            # manifest, client wrappers, host routes, packed files
 node scripts/sync-skills.mjs --check                # skills/ matches the pinned meshy-3d-agent release
 node scripts/smoke.mjs                              # install into a throwaway dsh and load the skills
 node scripts/sync-skills.mjs --from ../meshy-3d-agent   # try unreleased skills from a checkout
