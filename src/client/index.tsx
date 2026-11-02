@@ -708,10 +708,10 @@ function GlbBody({ content, resourceAddress, t }: { content: RendererContent; re
             {fileSizeText(size)} · {t('viewer.triangles', { count: viewer.triangles.toLocaleString() })}
           </span>
           <span className="meshy-tools">
-            <Tooltip label={t('viewer.reset')} side="top">
+            <Tooltip label={t('viewer.reset')} side="top" portal>
               <Button variant="ghost" size="sm" aria-label={t('viewer.reset')} icon={<IconRefreshOutlineRegular size={14} />} onClick={() => viewer.reset()} />
             </Tooltip>
-            <Tooltip label={spinning ? t('viewer.stop') : t('viewer.spin')} side="top">
+            <Tooltip label={spinning ? t('viewer.stop') : t('viewer.spin')} side="top" portal>
               <Button variant="ghost" size="sm" aria-label={spinning ? t('viewer.stop') : t('viewer.spin')} aria-pressed={spinning}
                 icon={spinning ? <IconPauseOutlineRegular size={14} /> : <IconPlayOutlineRegular size={14} />} onClick={toggle} />
             </Tooltip>
