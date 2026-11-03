@@ -3,19 +3,21 @@
 // real CLI.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const dir = mkdtempSync(join(tmpdir(), "meshy-dsh-host-"));
 const log = join(dir, "calls.log");
+const store = join(dir, "store");
+mkdirSync(store);
 const fake = join(dir, "meshy.js");
 writeFileSync(fake, `
 const args = process.argv.slice(2).join(" ");
 require("node:fs").appendFileSync(${JSON.stringify(log)}, JSON.stringify({ args, apiKey: process.env.MESHY_API_KEY ?? null, host: process.env.DSH_MESHY_CREDENTIAL ?? null }) + "\\n");
 const out = (o) => process.stdout.write(JSON.stringify(o));
 if (args === "--version") process.stdout.write("0.8.0\\n");
-else if (args.startsWith("auth status --offline --show-token")) out({ ok: true, result: { authenticated: true, source: "file", token: "msy_at_host_session", subject: "user-9", expires_at: Date.now() + 3600000, base_url_v1: "https://api.meshy.cn/openapi/v1" } });
+else if (args.startsWith("auth status --offline --show-token")) out({ ok: true, result: { authenticated: true, source: "file", token: "msy_at_host_session", subject: "user-9", expires_at: Date.now() + 3600000, base_url_v1: "https://api.meshy.cn/openapi/v1", credentials_file: ${JSON.stringify(join(store, "credentials.v2.json"))} } });
 else if (args.startsWith("auth status")) out({ ok: true, result: { authenticated: true, verified: true, source: "file", credential: "msy_at_U…abcd", account: { name: "Ada Lovelace", email: "ada@example.com" }, base_url_v1: "https://api.meshy.cn/openapi/v1", balance: { balance: 1085, monthly_credits: 1000 }, profiles: ["default"] } });
 else if (args.startsWith("auth login --device --no-wait")) out({ ok: true, result: { status: "device_flow_started", verification_url: "https://www.meshy.ai/device?user_code=ABCD-1234", user_code: "ABCD-1234", flow_id: "AbCdEfGhIjKlMnOp", device_code: "SECRET-DEVICE-CODE", expires_in: 600 } });
 else if (args.startsWith("auth login --device-flow=")) out({ ok: true, result: { status: "logged_in" } });
@@ -69,6 +71,17 @@ test("host: shell calls get the shipped CLI and a workspace journal; the session
   assert.equal(signedIn.DSH_MESHY_REGION, "cn");
   assert.equal(signedIn.DSH_MESHY_SUBJECT, "user-9");
   assert.equal(shellFacts({}).DSH_MESHY_STATE_DIR, undefined, "no journal dir outside an agent session");
+});
+
+test("host: a change to the credentials file re-reads the session at once", async () => {
+  await refreshSession();
+  const reads = () => calls().filter((c) => c.args.startsWith("auth status --offline --show-token")).length;
+  const before = reads();
+  // Another process refreshed: its write replaces the file.
+  writeFileSync(join(store, "credentials.v2.json.tmp"), "{}");
+  writeFileSync(join(store, "credentials.v2.json"), "{}");
+  for (let i = 0; i < 100 && reads() === before; i++) await new Promise((r) => setTimeout(r, 30));
+  assert.ok(reads() > before, "the session was re-read without waiting for the timer");
 });
 
 test("host: the CLI never sees an exported MESHY_API_KEY or a credential handed to this process", async () => {
