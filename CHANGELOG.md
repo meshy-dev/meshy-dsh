@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2] - 2026-11-03
+
+### Added
+
+- Retexture with Meshy N1: Meshy CLI 0.8.2 adds `retexture create --ai-model meshy-n1`, a 2K base
+  color texture from a style image or 1–4 views, with no text prompt and no PBR maps. The skills
+  (meshy-3d-agent 0.9.1) say when to use it and which recipe flags to drop.
+
 ## [0.3.1] - 2026-11-03
 
 ### Fixed
