@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.3.0] - 2026-11-03
+
+### Fixed
+
+- Signing in once is enough. dsh runs the agent's shell in a sandbox that cannot write the Meshy
+  CLI's credential store; when the access token expired (hourly), the CLI refreshed it there, could
+  not save the result, and the API then ended the login, so a new session usually asked to sign in
+  again. Agents also worked around the read-only store by moving the CLI's config into the
+  workspace, which left a token copy there and a login no other session saw. The plugin now keeps
+  the sign-in on the host: it refreshes the session on its side every few minutes and hands each
+  shell call a current credential (`DSH_MESHY_CREDENTIAL`, `DSH_MESHY_REGION`,
+  `DSH_MESHY_SUBJECT`); the refresh token never reaches the shell. The CLI's operation journal goes
+  to `.meshy` in the session's workspace (`DSH_MESHY_STATE_DIR`), the one place the shell may write.
+
+### Added
+
+- The plugin ships the Meshy CLI (`meshy-cli` 0.8.0, a dependency) and gives every shell call its
+  path and a Node.js to run it (`DSH_MESHY_CLI`, `DSH_MESHY_NODE`): no session installs the CLI or
+  runs it through `npm exec`, and nothing is downloaded per session.
+- `meshy_sign_in`, a tool the agent calls to sign the user in from a chat (QQ and other bridges):
+  it starts the browser sign-in on the host, returns the link and code, and finishes on its own
+  once the user approves.
+- Settings → Meshy shows the signed-in account (name and email) for logins made with this
+  version; the China site does not report it yet.
+
+### Changed
+
+- Skills from meshy-3d-agent 0.9.0 (Meshy CLI 0.8; in dsh they use the plugin's CLI and sign-in).
+- The host no longer looks for `meshy` on PATH or falls back to `npm exec`, and does not pass an
+  exported `MESHY_API_KEY` on to the CLI, matching what dsh does for the agent's shell.
+
 ## [0.2.1] - 2026-10-30
 
 ### Fixed
