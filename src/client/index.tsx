@@ -93,6 +93,7 @@ const en = {
   site: 'Site',
   'site.global': 'Global',
   'site.cn': 'China',
+  account: 'Account',
   credits: 'Credits',
   'credits.get': 'Get credits',
   method: 'Signed in with',
@@ -116,9 +117,8 @@ const en = {
   'signOut.body': 'The Meshy skills in DeepSeek Harness will ask you to sign in again before they generate.',
   close: 'Close',
   cli: 'Meshy CLI {version}',
-  'cli.temporary': 'run through npm exec',
   'error.cli': 'Meshy CLI not found',
-  'error.cliHint': 'Install Node.js 22.12 or newer, then run this and refresh:',
+  'error.cliHint': 'Reinstall the Meshy plugin under Plugins, then refresh.',
   'error.expired': 'The code expired. Start again for a new one.',
   'error.generic': 'Something went wrong: {message}',
   'viewer.title': '3D model',
@@ -158,6 +158,7 @@ const zh: typeof en = {
   site: '站点',
   'site.global': '国际站',
   'site.cn': '中国站',
+  account: '账号',
   credits: '积分',
   'credits.get': '获取积分',
   method: '登录方式',
@@ -181,9 +182,8 @@ const zh: typeof en = {
   'signOut.body': '退出后，DeepSeek Harness 里的 Meshy 技能在生成前会要求你重新登录。',
   close: '关闭',
   cli: 'Meshy CLI {version}',
-  'cli.temporary': '通过 npm exec 运行',
   'error.cli': '找不到 Meshy CLI',
-  'error.cliHint': '请安装 Node.js 22.12 或更新版本，运行下面的命令后刷新：',
+  'error.cliHint': '请在「插件」中重新安装 Meshy 插件，然后刷新。',
   'error.expired': '验证码已过期，请重新开始。',
   'error.generic': '出错了：{message}',
   'viewer.title': '3D 模型',
@@ -234,6 +234,7 @@ body[data-ds-dark-theme] .meshy-root{--meshy-accent:#c5f955;--meshy-accent-hover
 .meshy-divider{border-top:.5px solid var(--dsw-alias-border-l2)}
 .meshy-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px}
 .meshy-amount{display:inline-flex;align-items:center;gap:8px;font-size:18px;font-weight:510;line-height:28px}
+.meshy-account{display:flex;flex-direction:column;align-items:flex-end;min-width:0;text-align:right;overflow-wrap:anywhere}
 .meshy-coin{width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#f9e855,#e99430)}
 .meshy-link{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:36px;padding:0 14px;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-md);color:var(--dsw-alias-label-primary);font-size:14px;line-height:22px;text-decoration:none;white-space:nowrap}
 .meshy-link:hover{background:var(--dsw-alias-interactive-bg-hover)}
@@ -288,8 +289,9 @@ if (typeof document !== 'undefined' && !document.querySelector('style[data-plugi
   document.head.append(tag)
 }
 
-type Auth = { authenticated: boolean; verified: boolean; method: 'browser' | 'apiKey' | null; region: Site; balance: number | null }
-type Status = { cli: { version: string; runner: string } | null; error?: string; auth?: Auth }
+type Account = { name: string | null; email: string | null }
+type Auth = { authenticated: boolean; verified: boolean; method: 'browser' | 'apiKey' | null; account: Account | null; region: Site; balance: number | null }
+type Status = { cli: { version: string } | null; error?: string; auth?: Auth }
 type Flow = { verification_url: string; user_code: string; flow_id: string; expires_in?: number }
 type Problem = { kind: 'cli' | 'expired' | 'generic'; message?: string }
 
@@ -449,13 +451,25 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
               ? <Button variant="outline" size="sm" onClick={refresh}>{t('refresh')}</Button>
               : problem.kind === 'expired' ? <Button variant="outline" size="sm" onClick={signIn}>{t('retry')}</Button> : undefined}>
               <span>{problemText}</span>
-              {problem.kind === 'cli' && <><span className="meshy-muted meshy-small">{t('error.cliHint')}</span><code>npm install -g meshy-cli@0.7</code></>}
+              {problem.kind === 'cli' && <span className="meshy-muted meshy-small">{t('error.cliHint')}</span>}
             </Alert>
           )}
 
           {status.cli && signedIn && (
             <div className="meshy-card meshy-rows">
               {!auth!.verified && <Alert><span>{t('unverified.hint')}</span></Alert>}
+              {auth!.account && (
+                <>
+                  <div className="meshy-row">
+                    <span>{t('account')}</span>
+                    <span className="meshy-account">
+                      <span>{auth!.account.name ?? auth!.account.email}</span>
+                      {auth!.account.name && auth!.account.email && <span className="meshy-muted meshy-small">{auth!.account.email}</span>}
+                    </span>
+                  </div>
+                  <div className="meshy-divider" />
+                </>
+              )}
               <div className="meshy-row">
                 <span>{t('credits')}</span>
                 <span className="meshy-amount">{auth!.balance === null ? <span className="meshy-muted meshy-small">—</span> : <><span className="meshy-coin" />{auth!.balance.toLocaleString()}</>}</span>
@@ -525,7 +539,7 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
 
           {status.cli && (
             <div className="meshy-foot meshy-muted meshy-small">
-              <span>{t('cli', { version: status.cli.version })}{status.cli.runner === 'npm exec' ? ` · ${t('cli.temporary')}` : ''}</span>
+              <span>{t('cli', { version: status.cli.version })}</span>
               <Tooltip label={t('refresh')} side="top">
                 <Button variant="ghost" size="sm" aria-label={t('refresh')} disabled={busy} icon={<IconRefreshOutlineRegular size={14} />} onClick={refresh} />
               </Tooltip>
