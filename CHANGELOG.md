@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.1] - 2026-11-03
+
+### Fixed
+
+- A sign-in refreshed elsewhere no longer leaves the agent's shell with a rejected token. The API
+  ends the previous access token as soon as any process (a terminal, another agent) refreshes the
+  login, and the plugin used to notice only on its next five-minute read; it now re-reads the
+  session as soon as the credentials file changes.
+- Meshy CLI 0.8.1: commands that need a refresh at the same time refresh once, a refresh that has
+  started is always saved, a command whose token was replaced retries with the new one, and on
+  Windows the key store waits for PowerShell to start.
+
 ## [0.3.0] - 2026-11-03
 
 ### Fixed
