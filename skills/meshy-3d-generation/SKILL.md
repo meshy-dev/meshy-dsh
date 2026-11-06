@@ -2,12 +2,12 @@
 name: meshy-3d-generation
 description: "Generates and edits digital 3D assets with the Meshy CLI: text-to-3D and image-to-3D models, texturing, remeshing and LODs, UV unwrapping, format conversion (GLB, FBX, OBJ, USDZ, STL, 3MF, Blender), rigging, animation, motion clips from text and reference images. Use when the user asks to make, texture, rig, animate or convert a 3D model or game asset. For physical 3D printing use meshy-3d-printing."
 license: MIT
-compatibility: "Needs Node.js 22.12+ and the Meshy CLI 0.8.x, 0.8.2 or later (npm install -g meshy-cli@0.8); network access to the Meshy API."
+compatibility: "Needs Node.js 22.12+ and the Meshy CLI 0.8.x, 0.8.3 or later (npm install -g meshy-cli@0.8); network access to the Meshy API."
 ---
 
 # Meshy 3D Generation
 
-Use Meshy CLI **0.8** (0.8.2 or later) to turn the user's request into a delivered asset. Completion means
+Use Meshy CLI **0.8** (0.8.3 or later) to turn the user's request into a delivered asset. Completion means
 saving the requested files in the requested location, inspecting an available preview, and
 finishing any project integration the user requested. Login or task submission alone is not
 completion. Choose the shortest suitable pipeline and reuse existing assets for follow-ups.
@@ -17,7 +17,7 @@ completion. Choose the shortest suitable pipeline and reuse existing assets for 
 | Need | Reference |
 |---|---|
 | CLI runner, credentials, or output location | [Setup](references/setup.md) |
-| Generation, texturing, remeshing, conversion, scale, or 2D images | [Pipelines](references/pipelines.md) |
+| Generation and the models to pair for a project, texturing, remeshing, conversion, scale, or 2D images | [Pipelines](references/pipelines.md) |
 | Rigging, animation, or generated motion | [Animation](references/animation.md) |
 | Cost, waiting, preview, delivery, or finding a previous model | [Delivery](references/delivery.md) |
 | Failed or uncertain operation | [Troubleshooting](references/troubleshooting.md) |
@@ -35,7 +35,7 @@ cannot see that sign-in — install nothing, and when a command reports that nob
 call the `meshy_sign_in` tool instead of `auth login` (Setup, section 1). Everywhere else:
 
 Before the first command run `meshy --version`; no need to ask. When `meshy` is missing or
-older than 0.8.2, install the newest 0.8.x with `npm install -g meshy-cli@0.8` and say so in
+older than 0.8.3, install the newest 0.8.x with `npm install -g meshy-cli@0.8` and say so in
 one line; Setup covers a refused install and a CLI of 0.9 or newer. Reuse a verified session. If login is
 needed, follow Setup and run `auth login --device` (adding `--region cn` for a user in mainland
 China: the same account and the same credits as the global site) in a persistent tool session. Show its
@@ -45,6 +45,13 @@ A background process cannot resume a finished turn; do not require a "done" chat
 Setup's two-step sign-in for a user on a remote chat (a phone through a chat bot).
 Browser approval stays with the user; credentials never belong in chat.
 
+Only the CLI touches its config directory (`~/.config/meshy` by default): never read, copy,
+edit or delete a file there (an old `credentials.json` included), and never look for credentials
+anywhere else. When a sandboxed shell blocks the network (`auth login` fails with `oauth_network`
+or `fetch failed`), run the same command again with network access or outside the sandbox, asking
+the user to allow it if the host requires. Do not probe with `curl` or switch to `--with-key`
+(Setup, section 3).
+
 ## Execution boundaries
 
 - Run API, upload, download and mesh operations through the CLI. Local inputs have a 50 MiB
@@ -53,6 +60,10 @@ Browser approval stays with the user; credentials never belong in chat.
 - Use `--format json --no-update-check` on every command: stdout is one `meshy.cli/v1` envelope,
   auth included. Resolve `WORKSPACE` from the user's output
   path and pass it to writes.
+- Know what the model is for before the first paid create: a game asset, a character to rig, a
+  render, a 3D print. If the user hasn't said, ask once; the answer picks the route and the models
+  ([Pipelines](references/pipelines.md)). A game asset or a face-count budget means smart topology,
+  not a standard model remeshed down.
 - Submit once with `create --async`, retain the owning resource and ID, then `wait` on that
   task. Keep the agent turn active while awaiting a running command. Follow Troubleshooting
   on timeout or unknown submission; these do not authorize another paid create.

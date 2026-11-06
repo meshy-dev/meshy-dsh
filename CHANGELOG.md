@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.3] - 2026-11-06
+
+### Added
+
+- Choose the models by project: Meshy CLI 0.8.3 adds `--texture-model` on image-to-3d and
+  multi-image-to-3d, and the skills (meshy-3d-agent 0.9.4) pair geometry and texture models for
+  each kind of project, with Meshy T2.5 or T2 and N1 for game assets and Meshy 6 Lite for drafts.
+- Before the first paid create, the skills ask what the model is for when the request doesn't say.
+
+### Changed
+
+- The skills never read or edit the CLI's credential files, and read a 402
+  `plan_upgrade_required` as a plan refusal rather than an empty balance.
+
 ## [0.3.2] - 2026-11-03
 
 ### Added
