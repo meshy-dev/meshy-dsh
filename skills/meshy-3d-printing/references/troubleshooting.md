@@ -11,9 +11,9 @@ timeout · deleting a task · local files.
 
 ## Runner problems
 
-- **`meshy: command not found`** or **a version older than 0.8.2**: install the newest 0.8.x as
+- **`meshy: command not found`** or **a version older than 0.8.3**: install the newest 0.8.x as
   Setup describes. If the install is refused, use the temporary package
-  (`npm exec --yes --package=meshy-cli@0.8.2 -- meshy …`) and carry on with the same job.
+  (`npm exec --yes --package=meshy-cli@0.8.3 -- meshy …`) and carry on with the same job.
 - **A global 0.9 or newer** answers `--version`. Do not uninstall or downgrade it; use the
   temporary package for this work and mention the mismatch once.
 - **Node older than 22.12** fails the CLI's own runtime gate. Report the required version and the
@@ -54,7 +54,7 @@ status does not honor it.
 | 6 | Rate limit | Back off for read/status requests; respect server guidance. A create refused with a message starting `NoMorePendingTasks` made no task: too many of the account's tasks are queued or running, so wait for one to finish, then submit once. |
 | 7 | Network | Retry safe reads after connectivity recovers; inspect submission state before any create. |
 | 8 | Timeout | Resume waiting on an existing task; a login timeout needs a new authorization flow. |
-| 9 | The account cannot pay for this task | Too few credits, a Free plan (creating tasks needs a paid plan), a per-key monthly credit limit, or a plan-gated model (`nano-banana-pro` below Pro). Read the message, report the actual cause, and do not resubmit. |
+| 9 | The account cannot pay for this task | Too few credits, a Free plan (creating tasks needs a paid plan), a per-key monthly credit limit, or a model that needs a Pro plan or above (`nano-banana-pro`, or `--pose-mode` on an older nano-banana model). Read the message, report the actual cause, and do not resubmit the same request. `error.details.body.code` `plan_upgrade_required` (HTTP 402) is the plan, not the balance, even when the hint says out of credits and `error.recovery` suggests a top-up: credits do not lift it. If the refused task used one of those models, retry once on `gpt-image-2-5-flare`. Otherwise, or if that retry gets the same code, tell the user that creating tasks needs a Pro plan or above (plans and prices: <https://www.meshy.ai/pricing>), and do not suggest a top-up or an upgrade. |
 | 10 | Submission outcome unknown | Reconcile first; never automatically resubmit. |
 | 11 | Local I/O | Fix the output path/permissions, or choose another path when the target holds files that are not that task's own; then rerun the same `-o` or `download`. |
 | 12 / 13 | Check failed / unknown | Inspect check details; do not present an unknown result as a pass. |

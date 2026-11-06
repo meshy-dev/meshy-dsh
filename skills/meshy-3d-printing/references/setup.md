@@ -2,7 +2,7 @@
 
 Shared by the generation and print workflows. Three things are settled before any job
 starts: **how to run the CLI**, **whether a session already exists**, and **where files go**.
-The supported CLI is **0.8.x, from 0.8.2,** on **Node.js 22.12 or newer**. No Python, request wrapper or
+The supported CLI is **0.8.x, from 0.8.3,** on **Node.js 22.12 or newer**. No Python, request wrapper or
 separate token store is involved.
 
 Contents: 1 runner · 2 reuse a session · 3 first login · 4 where files go · 5 one session
@@ -33,8 +33,8 @@ meshy --version
 
 | Observation | What to do |
 |---|---|
-| `meshy --version` prints 0.8.2 or a later 0.8.x | run `meshy` |
-| no `meshy` command, or a version older than 0.8.2 | install the newest 0.8.x (below), then run `meshy` |
+| `meshy --version` prints 0.8.3 or a later 0.8.x | run `meshy` |
+| no `meshy` command, or a version older than 0.8.3 | install the newest 0.8.x (below), then run `meshy` |
 | 0.9 or newer | keep it, since something else may rely on it, and run the temporary package |
 | no Node.js, or Node older than 22.12 | stop and report it: the user installs Node.js 22.12+ |
 
@@ -43,15 +43,15 @@ npm install -g meshy-cli@0.8
 ```
 
 Check and install without asking first; say in one line that you are installing it. Install at
-most once: when `meshy --version` still reports a version older than 0.8.2 afterwards, the
+most once: when `meshy --version` still reports a version older than 0.8.3 afterwards, the
 registry this machine uses lags npm, so report that instead of installing again. Never use `sudo`
 or change system policy: when the install is refused (permissions, a managed machine, a sandbox), use the temporary package
 instead. It runs the same CLI without installing anything: put `npm exec --yes
---package=meshy-cli@0.8.2 --` in front of the same arguments, and the exit code and the JSON on
+--package=meshy-cli@0.8.3 --` in front of the same arguments, and the exit code and the JSON on
 stdout are forwarded unchanged. Recipes are written as `meshy …`; example:
 
 ```bash
-npm exec --yes --package=meshy-cli@0.8.2 -- meshy auth status --format json --no-update-check
+npm exec --yes --package=meshy-cli@0.8.3 -- meshy auth status --format json --no-update-check
 ```
 
 The first such call downloads the package into the npm cache; later calls reuse it. It names an
@@ -160,6 +160,13 @@ Failure branches — each is a different recovery, so read the error rather than
 - **`device_flow_not_supported`**: this API host has no device endpoint. Ask the user to run
   `meshy auth login` in their own desktop terminal (loopback + browser), or to store their own
   key with `meshy auth login --with-key <key>` privately. Never ask for the key in chat.
+- **Network blocked by a sandbox** (the login fails within a second with `error.details.code:
+  "oauth_network"` and a `fetch failed` message, before any URL or code appears): the shell
+  cannot reach Meshy, so no login can finish there. Run the *same* command again with network
+  access or outside the sandbox, asking the user to allow it if the host requires approval. Do
+  not follow the error's `--with-key` hint, probe the network with `curl`, or go looking for a
+  credential to reuse: an older `credentials.json` is the CLI's to move over, never yours to
+  read, copy or edit (section 5).
 - **Host cannot keep a process alive at all**: use the two-step sign-in below.
 
 ### Remote chat: sign in across two turns
@@ -235,7 +242,9 @@ login over on its first write, and an older CLI then signs in once on its own.
 
 `MESHY_CONFIG_DIR` changes the config directory; `MESHY_CREDENTIALS_PATH` overrides the
 credential file. Non-production API hosts use `credentials.v2.dev.json` by default. Keep these
-settings consistent; do not copy tokens between plugins or read the credential file.
+settings consistent. Only the CLI touches the config directory: never read, copy, move, edit or
+delete a credential file there (the older `credentials.json` included, even to inspect its
+fields), and do not copy tokens between plugins.
 `auth list` reports profile kinds with masked credentials. `auth use <name>` changes the shared
 active profile, so do not switch it independently in concurrent workflows.
 
