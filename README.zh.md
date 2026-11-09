@@ -28,7 +28,7 @@ dsh plugin --profile web add github:meshy-dev/meshy-dsh
 
 ## 开发与发布
 
-命令见 [README.md](README.md#development)。发布方式：更新 `package.json` 版本与 `CHANGELOG.md`，然后建标签为 `v<版本号>` 的 GitHub Release，再从 `main` 手动运行 `publish.yml` 并填入这个标签。它通过 GitHub OIDC 从 AWS Secrets Manager 读取 npm token 发布（配置见 `scripts/release/aws/`）。不要手动 `npm publish`。
+命令见 [README.md](README.md#development)。发布方式：更新 `package.json` 版本与 `CHANGELOG.md`，然后建标签为 `v<版本号>` 的 GitHub Release，再从 `main` 手动运行 `publish.yml` 并填入这个标签。它通过 npm trusted publishing（GitHub OIDC）发布并附带 provenance，任何地方都不保存 npm token。不要手动 `npm publish`。
 
 ## 许可
 

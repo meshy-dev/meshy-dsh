@@ -81,8 +81,8 @@ To take new skills: release meshy-3d-agent, set `meshy.skills` in `package.json`
 Bump `version` in `package.json` and add a `CHANGELOG.md` entry, then create a GitHub Release
 tagged `v<version>` and run [`publish.yml`](.github/workflows/publish.yml) from `main` with that
 tag. It checks the tag against `package.json`, runs the checks above and publishes with
-provenance, using an npm token it reads from AWS Secrets Manager through GitHub OIDC (setup in
-[`scripts/release/aws/`](scripts/release/aws/)). Do not publish by hand.
+provenance through npm trusted publishing (GitHub OIDC), so no npm token is stored anywhere.
+Do not publish by hand.
 
 ## License
 
