@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4] - 2026-11-09
+
+### Changed
+
+- Meshy CLI 0.8.4: requests name the agent running the CLI in the User-Agent (`agent dsh` here).
+- Published to npm through trusted publishing, with provenance; no npm token is stored anywhere.
+
 ## [0.3.3] - 2026-11-06
 
 ### Added
