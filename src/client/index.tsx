@@ -27,6 +27,7 @@ type Ctx = {
   locale: { register(ns: string, dicts: object): () => void; bind(ns: string): T }
   documentPreviews: { register(definition: object): () => void }
   remote: { workspaceFiles: WorkspaceFiles }
+  pluginNavigation: { openBundle(packageName: string): void }
   effect(execute: () => () => unknown, label?: string): unknown
   inject(deps: string[], callback: (ctx: Ctx) => void): unknown
 }
@@ -80,6 +81,31 @@ function docsUrl(site: Site): string {
   return site === 'global' && /^zh/i.test(globalThis.navigator?.language ?? '') ? `${SITES.global.docs}/zh` : SITES[site].docs
 }
 
+// This plugin's version and the newer release a reinstall would bring (the host decides, and
+// offers a release only once dsh's installer would pick it). One copy for the panel and the
+// sidebar mark; read when the client starts, every six hours, and on the panel's refresh.
+const PACKAGE = 'meshy-dsh'
+const RELEASES = 'https://github.com/meshy-dev/meshy-dsh/releases/tag'
+const UPDATE_POLL_MS = 6 * 3600_000
+type Plugin = { version: string; update: string | null }
+let plugin: Plugin | undefined
+const pluginListeners = new Set<() => void>()
+async function readPlugin() {
+  try {
+    const { status, data } = await api('meshy.update')
+    if (status !== 200 || typeof data?.version !== 'string') return
+    plugin = { version: data.version, update: typeof data.update === 'string' ? data.update : null }
+    for (const notify of pluginListeners) notify()
+  } catch {
+    // No notice is the safe default.
+  }
+}
+function usePlugin(): Plugin | undefined {
+  return useSyncExternalStore((notify) => { pluginListeners.add(notify); return () => { pluginListeners.delete(notify) } }, () => plugin)
+}
+/** Set while the Plugins page's navigation service is mounted: opens this plugin's page there. */
+let openBundle: ((packageName: string) => void) | undefined
+
 const en = {
   nav: 'Meshy',
   accountTitle: 'Meshy account',
@@ -117,6 +143,12 @@ const en = {
   'signOut.body': 'The Meshy skills in DeepSeek Harness will ask you to sign in again before they generate.',
   close: 'Close',
   cli: 'Meshy CLI {version}',
+  versions: 'Meshy plugin {plugin} · CLI {cli}',
+  'update.title': 'Meshy plugin {version} is available',
+  'update.hint': 'You have {current}. To update, uninstall Meshy on its plugin page, then add meshy-dsh again with Add plugin. You stay signed in.',
+  'update.hintHere': 'You have {current}. To update, uninstall Meshy on this page, then add meshy-dsh again with Add plugin. You stay signed in.',
+  'update.open': 'Open plugin page',
+  'update.notes': "What's new",
   'error.cli': 'Meshy CLI not found',
   'error.cliHint': 'Reinstall the Meshy plugin under Plugins, then refresh.',
   'error.expired': 'The code expired. Start again for a new one.',
@@ -182,6 +214,12 @@ const zh: typeof en = {
   'signOut.body': '退出后，DeepSeek Harness 里的 Meshy 技能在生成前会要求你重新登录。',
   close: '关闭',
   cli: 'Meshy CLI {version}',
+  versions: 'Meshy 插件 {plugin} · CLI {cli}',
+  'update.title': 'Meshy 插件 {version} 已发布',
+  'update.hint': '当前是 {current}。在插件页卸载 Meshy，再用「添加插件」重新安装 meshy-dsh，登录会保留。',
+  'update.hintHere': '当前是 {current}。在本页卸载 Meshy，再用「添加插件」重新安装 meshy-dsh，登录会保留。',
+  'update.open': '前往插件页',
+  'update.notes': '更新内容',
   'error.cli': '找不到 Meshy CLI',
   'error.cliHint': '请在「插件」中重新安装 Meshy 插件，然后刷新。',
   'error.expired': '验证码已过期，请重新开始。',
@@ -278,7 +316,12 @@ body[data-ds-dark-theme] .meshy-root{--meshy-accent:#c5f955;--meshy-accent-hover
 .meshy-links{display:flex;gap:16px}
 .meshy-textlink{display:inline-flex;align-items:center;gap:4px;color:var(--dsw-alias-label-secondary);text-decoration:none}
 .meshy-textlink:hover{color:var(--dsw-alias-label-primary)}
-.meshy-mark{display:inline-flex;flex:none}
+.meshy-mark{position:relative;display:inline-flex;flex:none}
+.meshy-glyph{display:inline-flex;width:100%;height:100%}
+.meshy-badge{position:absolute;top:-2px;right:-3px;width:7px;height:7px;border-radius:50%;background:#beef54;box-shadow:0 0 0 1.5px var(--dsw-alias-bg-base)}
+body[data-ds-dark-theme] .meshy-badge{background:#c5f955}
+.meshy-update{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 16px}
+.meshy-update .meshy-copy{flex:1 1 280px}
 .meshy-tools{display:flex;gap:4px;padding:2px;border-radius:var(--dsw-radius-md);background:color-mix(in srgb,var(--dsw-alias-bg-base) 80%,transparent);backdrop-filter:blur(8px)}
 `
 if (typeof document !== 'undefined' && !document.querySelector('style[data-plugin-css="meshy-dsh/client.css"]')) {
@@ -348,8 +391,25 @@ function Alert({ children, action }: { children: React.ReactNode; action?: React
   )
 }
 
-function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
+/** A newer release and how to get it; on the plugin's own page the uninstall control is right there. */
+function UpdateNotice({ t, plugin, here }: { t: T; plugin: Plugin; here: boolean }) {
+  return (
+    <div className="meshy-card meshy-update">
+      <div className="meshy-copy">
+        <span className="meshy-name meshy-pill"><span className="meshy-dot" data-on />{t('update.title', { version: plugin.update! })}</span>
+        <span className="meshy-muted meshy-small">{t(here ? 'update.hintHere' : 'update.hint', { current: plugin.version })}</span>
+      </div>
+      <div className="meshy-actions">
+        <a className="meshy-link" href={`${RELEASES}/v${plugin.update}`} target="_blank" rel="noreferrer">{t('update.notes')}<IconRightUpOutlineRegular size={12} /></a>
+        {!here && openBundle && <Button variant="outline" onClick={() => openBundle?.(PACKAGE)}>{t('update.open')}</Button>}
+      </div>
+    </div>
+  )
+}
+
+function MeshyPanel({ t, view, place }: { t: T; view?: 'page' | 'summary'; place?: 'sidebar' }) {
   const [status, setStatus] = useState<Status>()
+  const plugin = usePlugin()
   const site = useSite()
   const [flow, setFlow] = useState<Flow>()
   const [busy, setBusy] = useState(false)
@@ -363,6 +423,7 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
   const refresh = useCallback(async () => {
     setStatus(undefined)
     setProblem(undefined)
+    void readPlugin()
     try {
       const next: Status = (await api('meshy.status')).data
       setStatus(next)
@@ -432,11 +493,13 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
   const signedIn = !!auth?.authenticated
   const shownSite: Site = auth?.region ?? site
   const problemText = problem && (problem.kind === 'expired' ? t('error.expired') : problem.kind === 'cli' ? t('error.cli') : t('error.generic', { message: problem.message ?? '' }))
+  // The host renders `view: 'page'` on this plugin's page in Plugins; the sidebar page says `place`.
+  const notice = plugin?.update ? <UpdateNotice t={t} plugin={plugin} here={view === 'page' && place !== 'sidebar'} /> : null
 
   return (
     <section className="meshy-root meshy-section" aria-label={t('nav')}>
       {!status ? (
-        <><Identity t={t} page={view === 'page'} line={t(view === 'page' ? 'summary' : 'tagline')} pill="checking" /><Skeleton /></>
+        <><Identity t={t} page={view === 'page'} line={t(view === 'page' ? 'summary' : 'tagline')} pill="checking" />{notice}<Skeleton /></>
       ) : (
         <>
           <Identity
@@ -445,6 +508,7 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
             line={signedIn ? `${t(`site.${shownSite}`)} · ${SITES[shownSite].host}` : t(view === 'page' ? 'summary' : 'tagline')}
             pill={!status.cli ? 'off' : !signedIn ? 'off' : auth!.verified ? 'on' : 'warn'}
           />
+          {notice}
 
           {problem && (
             <Alert action={problem.kind === 'cli'
@@ -539,7 +603,7 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
 
           {status.cli && (
             <div className="meshy-foot meshy-muted meshy-small">
-              <span>{t('cli', { version: status.cli.version })}</span>
+              <span>{plugin ? t('versions', { plugin: plugin.version, cli: status.cli.version }) : t('cli', { version: status.cli.version })}</span>
               <Tooltip label={t('refresh')} side="top">
                 <Button variant="ghost" size="sm" aria-label={t('refresh')} disabled={busy} icon={<IconRefreshOutlineRegular size={14} />} onClick={refresh} />
               </Tooltip>
@@ -566,9 +630,15 @@ function MeshyPanel({ t, view }: { t: T; view?: 'page' | 'summary' }) {
 /** Set while the workspace navigation service is mounted: opens a new session with the prompt filled in. */
 let startSession: ((prompt: string) => void) | undefined
 
-/** Left-sidebar icon: the host passes the edge size (18 expanded, 16 collapsed); colour follows the row. */
+/** Left-sidebar icon: the host passes the edge size (18 expanded, 16 collapsed); colour follows the row. A dot marks a newer release. */
 function MeshySidebarIcon({ size = 16 }: { size?: number; active?: boolean }) {
-  return <span className="meshy-mark" aria-hidden="true" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: __MESHY_MONO__ }} />
+  const update = usePlugin()?.update
+  return (
+    <span className="meshy-mark" aria-hidden="true" style={{ width: size, height: size }}>
+      <span className="meshy-glyph" dangerouslySetInnerHTML={{ __html: __MESHY_MONO__ }} />
+      {update && <span className="meshy-badge" />}
+    </span>
+  )
 }
 
 function ExampleCard({ t, id }: { t: T; id: (typeof EXAMPLES)[number] }) {
@@ -599,7 +669,7 @@ function MeshyPage({ t }: { t: T }) {
           <Logo />
           <div className="meshy-copy"><h1>Meshy</h1><span className="meshy-muted">{t('page.tagline')}</span></div>
         </header>
-        <MeshyPanel t={t} view="page" />
+        <MeshyPanel t={t} view="page" place="sidebar" />
         <section className="meshy-block" aria-labelledby="meshy-start">
           <div className="meshy-copy">
             <h2 id="meshy-start" className="meshy-h2">{t('page.start')}</h2>
@@ -762,6 +832,17 @@ export function apply(ctx: Ctx) {
       startSession = (prompt) => ctx.uiWorkspace.startSession(undefined, { prompt, whenDraftExists: 'replace' })
       return () => { startSession = undefined }
     }, 'meshy-dsh: start a session from an example')
+  })
+  ctx.effect(() => {
+    void readPlugin()
+    const timer = setInterval(readPlugin, UPDATE_POLL_MS)
+    return () => clearInterval(timer)
+  }, 'meshy-dsh: update check')
+  ctx.inject(['pluginNavigation'], (ctx) => {
+    ctx.effect(() => {
+      openBundle = (packageName) => ctx.pluginNavigation.openBundle(packageName)
+      return () => { openBundle = undefined }
+    }, 'meshy-dsh: open the plugin page')
   })
   // Only where the document preview is mounted (the right sidebar of Web and Desktop).
   ctx.inject(['documentPreviews', 'slots', 'locale', 'remote', 'remote.workspaceFiles'], (ctx) => {
