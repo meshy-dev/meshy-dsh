@@ -30,12 +30,21 @@ meshy.cn with the same account and the same credits, and keep calls there. The s
 a key your OS keeps), so `meshy` in your terminal shares it. dsh keeps an exported `MESHY_API_KEY`
 out of the agent's shell, and the plugin does not pass it on either.
 
+## Update
+
+dsh never updates a plugin it installed, so you keep the version you added until you reinstall it.
+In Web and Desktop, the Meshy page and **Settings → Meshy** say when a newer version is out, and a
+dot appears on the sidebar entry. A release shows up there once it is a day old: until then dsh's
+installer would still pick the previous one. To update, uninstall Meshy on its page under
+**Plugins** and add `meshy-dsh` again; from a terminal, `dsh plugin --profile web remove meshy-dsh`
+followed by the `add` command above. You stay signed in.
+
 ## Settings page and 3D preview
 
 In Web and Desktop, a **Meshy** entry appears in the left sidebar. It opens a Meshy page with your
 account and a few example requests: pick one and a new session opens with it filled in, ready to
 edit and send. **Settings → Meshy** (also the plugin's page under **Plugins**) shows the
-Meshy CLI version, whether and how you are signed in (browser or API key), the account, which
+plugin and Meshy CLI versions, whether and how you are signed in (browser or API key), the account, which
 site (meshy.ai or meshy.cn) and your credits. The account (name and email) appears once you sign
 in with this version; the China site does not report it yet. **Sign in to Meshy** shows the approval link with a QR code for your phone and the code
 to check; the page picks up the approval by itself. Clicking a `.glb` file in the right sidebar, or

@@ -27,7 +27,7 @@ else { out({ ok: false, error: { message: "unexpected " + args } }); process.exi
 process.env.MESHY_DSH_CLI = fake;
 test.after(() => { delete process.env.MESHY_DSH_CLI; rmSync(dir, { recursive: true, force: true }); });
 
-const { apply, loginFinish, loginStart, logout, refreshSession, shellFacts, signIn, status } = await import("../lib/index.js");
+const { apply, loginFinish, loginStart, logout, pickUpdate, refreshSession, shellFacts, signIn, status, update } = await import("../lib/index.js");
 
 const post = (body) => new Request("http://host/api/x", { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) });
 const calls = () => readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l));
@@ -55,7 +55,7 @@ test("host: the session refresher, shell env, sign-in tool and routes each wait 
   assert.equal(registered.env.name, "meshy");
   assert.ok(Object.keys(registered.env.variables).every((k) => k.startsWith("DSH_MESHY_")));
   assert.equal(registered.tool.name, "meshy_sign_in");
-  assert.deepEqual(routes, ["GET /api/meshy.status", "POST /api/meshy.login", "POST /api/meshy.login.finish", "POST /api/meshy.logout"]);
+  assert.deepEqual(routes, ["GET /api/meshy.status", "GET /api/meshy.update", "POST /api/meshy.login", "POST /api/meshy.login.finish", "POST /api/meshy.logout"]);
 });
 
 test("host: shell calls get the shipped CLI and a workspace journal; the session once signed in", async () => {
@@ -111,6 +111,53 @@ test("host: status reports the CLI, the account, the site and the credits, never
       hint: null,
     },
   });
+});
+
+const DAY = 24 * 3600_000;
+const now = Date.parse("2026-11-09T12:00:00Z");
+const ago = (ms) => new Date(now - ms).toISOString();
+const packument = (latest, released) => ({
+  "dist-tags": { latest },
+  versions: Object.fromEntries(Object.keys(released).map((v) => [v, {}])),
+  time: { created: ago(30 * DAY), modified: ago(0), ...released },
+});
+
+test("host: a newer release is offered once a reinstall would get it", () => {
+  const p = packument("0.4.1", { "0.3.4": ago(5 * DAY), "0.4.0": ago(2 * DAY), "0.4.1": ago(2 * 3600_000) });
+  assert.equal(pickUpdate(p, "0.3.4", now), "0.4.0", "0.4.1 is under a day old: pnpm would still install 0.4.0");
+  assert.equal(pickUpdate(p, "0.4.0", now), null);
+  assert.equal(pickUpdate(p, "0.4.1", now), null);
+  assert.equal(pickUpdate(p, "0.3.4", now + DAY), "0.4.1", "offered the next day without a new read");
+  assert.equal(pickUpdate(p, "0.3.10", now), "0.4.0", "numeric, not string, order");
+});
+
+test("host: prereleases, versions past latest and malformed data are never offered", () => {
+  const p = packument("0.4.0", { "0.4.0": ago(3 * DAY), "0.5.0-rc.1": ago(3 * DAY), "0.5.0": ago(3 * DAY), "1.0": ago(3 * DAY) });
+  assert.equal(pickUpdate(p, "0.3.0", now), "0.4.0");
+  assert.equal(pickUpdate({ ...p, "dist-tags": {} }, "0.3.0", now), null);
+  assert.equal(pickUpdate({ ...p, time: {} }, "0.3.0", now), null);
+  for (const bad of [null, undefined, "nope", {}]) assert.equal(pickUpdate(bad, "0.3.0", now), null);
+});
+
+test("host: the update route reads the registry, and an unreachable one means no notice", async () => {
+  const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const [major, minor] = version.split(".").map(Number);
+  const next = `${major}.${minor + 1}.0`;
+  const real = globalThis.fetch;
+  const asked = [];
+  try {
+    globalThis.fetch = async (url) => { asked.push(String(url)); throw new TypeError("fetch failed"); };
+    assert.deepEqual(await (await update()).json(), { version, update: null });
+    assert.deepEqual(asked.sort(), ["https://registry.npmjs.org/meshy-dsh", "https://registry.npmmirror.com/meshy-dsh"]);
+
+    // A failed read is retried on the next request; one registry answering is enough.
+    globalThis.fetch = async (url) => String(url).includes("npmmirror")
+      ? Response.json(packument(next, { [version]: ago(9 * DAY), [next]: new Date(Date.now() - 2 * DAY).toISOString() }))
+      : new Response("busy", { status: 503 });
+    assert.deepEqual(await (await update()).json(), { version, update: next });
+  } finally {
+    globalThis.fetch = real;
+  }
 });
 
 test("host: sign-in returns the link and code but never the device code", async () => {

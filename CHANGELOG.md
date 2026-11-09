@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.5] - 2026-11-09
+
+### Added
+
+- The plugin says when a newer version is out. dsh never updates a plugin it installed, so the
+  Meshy page and Settings → Meshy now show a newer release with how to update (uninstall Meshy
+  under Plugins, then add `meshy-dsh` again; the sign-in is kept) and a link to its notes, and a
+  dot appears on the sidebar entry. A release is offered once it is a day old, when dsh's
+  installer would actually pick it. The plugin checks npm (or npmmirror) at most every six hours,
+  and only while Web or Desktop is open.
+- Settings → Meshy shows the plugin version next to the CLI version.
+
 ## [0.3.4] - 2026-11-09
 
 ### Changed
