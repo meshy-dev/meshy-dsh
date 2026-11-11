@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.6] - 2026-11-11
+
+### Changed
+
+- Meshy skills 0.9.6. A model from a description now starts with a recommended reference image,
+  shown for approval before the model is built from it; text-to-3d stays as the quicker
+  alternative. The skill text is shorter and sticks to Meshy.
+- Meshy CLI 0.8.5, the minimum the skills ask for since 0.9.5. It honors `HTTPS_PROXY`,
+  `HTTP_PROXY` and `NO_PROXY`.
+
 ## [0.3.5] - 2026-11-09
 
 ### Added
