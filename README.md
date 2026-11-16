@@ -7,6 +7,8 @@ Meshy's 3D generation and 3D printing skills for [DeepSeek Harness](https://gith
 tool and saves the results into your project: text or image to 3D, textures, remeshing, rigging
 and animation, format conversion, and print-ready files with slicer handoff.
 
+![A Meshy model delivered in a DeepSeek Harness chat, with the GLB open in the 3D preview](assets/screenshots/chat-and-3d-preview.png)
+
 ## Install
 
 ```bash
@@ -53,6 +55,8 @@ zoom, reset the view or let it turn) with its file size and triangle count. Mode
 open, past dsh's 32 MB limit for previewing a whole file, because the preview reads them in 2 MB
 pieces. tui and headless have
 neither; the skills work the same everywhere.
+
+![The Meshy page in DeepSeek Harness: account, credits and example requests](assets/screenshots/meshy-page.png)
 
 ## How it works
 
