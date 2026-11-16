@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.7] - 2026-11-16
+
+### Changed
+
+- A shorter plugin description in Plugin Manager, in English and Chinese.
+- The README shows the plugin in DeepSeek Harness: a model delivered in a chat with its 3D
+  preview, and the Meshy page.
+
 ## [0.3.6] - 2026-11-11
 
 ### Changed

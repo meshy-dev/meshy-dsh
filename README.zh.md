@@ -4,6 +4,8 @@
 
 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（dsh）提供 Meshy 的 3D 生成与 3D 打印 skill。agent 通过 shell 调用 [`meshy-cli`](https://www.npmjs.com/package/meshy-cli)，结果直接保存到你的项目里：文字或图片生成 3D、贴图、重拓扑、绑骨与动画、格式转换，以及可直接打印的文件和切片软件对接。
 
+![DeepSeek Harness 对话里交付的 Meshy 模型，右侧是 GLB 的 3D 预览](assets/screenshots/chat-and-3d-preview.png)
+
 ## 安装
 
 ```bash
@@ -23,6 +25,8 @@ dsh 不会自动更新已安装的插件，重新安装之前一直是你当初�
 ## 设置页与 3D 预览
 
 在 Web 和 Desktop 里，左侧栏会出现 **Meshy** 入口，打开后是 Meshy 页面：显示账号，并给出几个示例需求，点一个就会新开会话并填好需求，改一改再发送。**设置 → Meshy**（插件页里也有）会显示插件和 Meshy CLI 的版本、是否已登录及登录方式（浏览器或 API key）、登录的账号、所在站点（meshy.ai 或 meshy.cn）和积分。账号（名字和邮箱）要用这个版本登录后才会显示，中国站暂时还不提供。点**登录 Meshy**会显示批准链接、二维码和核对用的验证码，可以用手机扫码批准，页面会自动发现批准完成。在右侧栏点一个 `.glb` 文件，或点 agent 交付的模型卡片，会打开可交互的 3D 预览（拖动旋转，滚轮缩放，可复位视角或自动旋转），并显示文件大小和三角面数。预览会按 2 MB 分块读取模型，所以不受 dsh 整文件预览 32 MB 的上限限制，最大可预览 256 MB。tui 和 headless 没有这些界面，skill 在任何界面都一样能用。
+
+![DeepSeek Harness 里的 Meshy 页面：账号、积分和示例需求](assets/screenshots/meshy-page.png)
 
 ## 工作方式
 
