@@ -51,10 +51,11 @@ meshy balance --format json --no-update-check
 
 Spend rules: work already authorized by the user proceeds without asking again, stage by stage,
 to the end of the agreed plan. Ask only for a **new** cost the user has not agreed to — an extra
-stage, a second variant, a rerun after a disappointing result. Exit 9 (`insufficient_credit`)
-stops new paid submissions immediately: keep everything already produced, report what is
-missing and the cause the message gives (balance, plan or a key's credit limit; see
-Troubleshooting), and point at the account page rather than retrying.
+stage, a second variant, a rerun after a disappointing result. One pause stays inside an agreed
+plan, and it is not about cost: a reference image is shown, and the model waits until the user
+approves it. Exit 9 (`insufficient_credit`) stops new paid submissions immediately: keep everything
+already produced, report what is missing and the cause the message gives (balance, plan or a key's
+credit limit; see Troubleshooting), and point at the account page rather than retrying.
 
 ## Waiting: the CLI polls, you narrate
 
@@ -101,8 +102,12 @@ Deliver four things, every time:
 
 1. **The model file**, at the path the user asked for.
 2. **The preview**, shown inline when one exists, or an explicit note that none does.
-   A PNG render is not an interactive 3D viewer; this CLI has no local viewer command, so say
-   "rendered preview", never "3D preview".
+   A PNG render is not an interactive 3D viewer, so say "rendered preview", never "3D preview".
+   For a GLB or glTF, add that `meshy view PATH` opens it in a 3D viewer in the user's browser,
+   served from their computer. If you start it yourself, add `--detach`: without it the command does
+   not return while the viewer runs, and sending it to the background with `&` does not help,
+   because the viewer is stopped when your shell call ends. Where your chat shows images or web
+   pages, see [visual-hosts.md](visual-hosts.md).
 3. **The task trail**: the producing task ID(s) and the resource each belongs to. That is what
    makes the next request cheap. A delivery made with `-o` also leaves a sidecar beside the model
    (`chest_meta.json` next to `chest.glb`, or `meta.json` in a directory; `download` and

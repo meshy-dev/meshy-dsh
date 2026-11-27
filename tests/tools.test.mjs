@@ -135,12 +135,13 @@ test("tools: the agent's arguments pass through, minus the options the plugin ow
   assert.deepEqual(prepareArgs(["auth", "status"]), ["auth", "status"]);
 });
 
-test("tools: arguments that start with an option, replace or print the sign-in, or log in are refused", () => {
+test("tools: arguments that start with an option, replace or print the sign-in, log in, or start a viewer are refused", () => {
   assert.throws(() => prepareArgs([]), /starting with the command/);
   assert.throws(() => prepareArgs("make a fox"), /list of strings/);
   assert.throws(() => prepareArgs(["--format", "json", "balance"]), /start with the command/);
   assert.throws(() => prepareArgs(["auth", "login"]), /meshy_sign_in/);
   assert.throws(() => prepareArgs(["auth", "logout"]), /meshy_sign_in/);
+  assert.throws(() => prepareArgs(["view", "meshy_output/fox.glb", "--detach"]), /meshy_preview_model/);
   assert.throws(() => prepareArgs(["balance", "--api-key", "msy_x"]), /--api-key is not allowed/);
   assert.throws(() => prepareArgs(["balance", "--api-key-file=.env"]), /--api-key-file is not allowed/);
   assert.throws(() => prepareArgs(["balance", "--base-url-v1", "https://example.com"]), /--base-url-v1 is not allowed/);

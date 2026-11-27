@@ -27,7 +27,7 @@ const argv = process.argv.slice(2);
 const args = argv.join(" ");
 fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ args, apiKey: process.env.MESHY_API_KEY ?? null, host: process.env.DSH_MESHY_CREDENTIAL ?? null, stateDir: process.env.DSH_MESHY_STATE_DIR ?? null }) + "\\n");
 const out = (o) => process.stdout.write(JSON.stringify(o));
-if (args === "--version") process.stdout.write("0.8.5\\n");
+if (args === "--version") process.stdout.write("0.8.8\\n");
 else if (args === "resources --format json --no-update-check") out(${JSON.stringify(RESOURCES)});
 else if (args.startsWith("auth status --offline --show-token")) out({ ok: true, result: { authenticated: true, source: "file", token: "msy_at_host_session", subject: "user-9", expires_at: Date.now() + 3600000, base_url_v1: "https://api.meshy.cn/openapi/v1", credentials_file: ${JSON.stringify(join(store, "credentials.v2.json"))} } });
 else if (args.startsWith("auth status")) out({ ok: true, result: { authenticated: true, verified: true, source: "file", credential: "msy_at_U…abcd", account: { name: "Ada Lovelace", email: "ada@example.com" }, base_url_v1: "https://api.meshy.cn/openapi/v1", balance: { balance: 1085, monthly_credits: 1000 }, profiles: ["default"] } });
@@ -168,7 +168,7 @@ test("host: the CLI never sees an exported MESHY_API_KEY or a credential handed 
 test("host: status reports the CLI, the account, the site and the credits, never the credential", async () => {
   const body = await (await status()).json();
   assert.deepEqual(body, {
-    cli: { version: "0.8.5" },
+    cli: { version: "0.8.8" },
     auth: {
       authenticated: true,
       verified: true,

@@ -1,6 +1,6 @@
 {
   "name": "meshy-dsh",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Meshy for DeepSeek Harness: native 3D generation tools with inline chat cards and credit approval, a live right-sidebar 3D Studio and model library, GLB preview, Cordis services, and CLI skills for rigging, animation and 3D printing.",
   "keywords": [
     "dsh-plugin",
@@ -50,7 +50,7 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "meshy": {
-    "skills": "meshy-dev/meshy-3d-agent#v0.9.6"
+    "skills": "meshy-dev/meshy-3d-agent#v0.9.8"
   },
   "dsh": {
     "bundle": {
@@ -66,6 +66,6 @@
     "tsdown": "^0.23.4"
   },
   "dependencies": {
-    "meshy-cli": "0.8.5"
+    "meshy-cli": "0.8.8"
   }
 }
