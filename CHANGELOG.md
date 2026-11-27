@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.1] - 2026-11-27
+
+### Changed
+
+- Meshy CLI 0.8.8 (was 0.8.5). It adds `meshy relief`, a bas-relief model and a 16-bit depth map
+  from one photo. The plugin reads from the CLI which commands spend credits, so `relief create`
+  asks for your approval like any other generation without a plugin change. Running out of
+  credits now links to the subscription settings page.
+- Meshy skills 0.9.8 (was 0.9.6). On the reference-image route the agent shows the image and
+  waits for your approval before it builds the model.
+- The `meshy` tool does not run `meshy view`, the CLI's browser viewer that the skills now
+  mention: in dsh the Meshy Studio is the viewer, and `meshy_preview_model` opens a model there.
+
 ## [0.4.0] - 2026-11-27
 
 ### Added
