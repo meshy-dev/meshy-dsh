@@ -1,5 +1,72 @@
 # Changelog
 
+## [0.4.0] - 2026-11-27
+
+### Added
+
+- Three native tools. `meshy` runs the bundled Meshy CLI with the arguments the skills document,
+  signed in as you and limited to the chat's workspace. A command that spends credits asks for
+  your approval first, with the agent's estimate, where it comes from and your balance ("price
+  unknown" when there is none). Generations run as dsh background jobs: several can run at once,
+  the conversation goes on, and the agent is told when each ends. `meshy_sign_in` signs in from
+  the chat, and `meshy_preview_model` opens a result in the Studio. Each run gets a chat card with
+  its command, live progress, thumbnails and the credits actually charged.
+- Which commands are tasks, and so which ones spend credits, is read from the CLI
+  (`meshy resources`), so a CLI with new commands works without a plugin update.
+- A **Meshy Studio** tab in the right sidebar (Web and Desktop), one per chat. Models and images
+  are kept apart by what each task produced, each with a large stage (the 3D viewer below, or a
+  zoomable image) over a grid of what the chat made, running ones with their progress; a result
+  that is neither, such as a printability report, stays in the chat. Next steps sit in a toolbar
+  over the stage and fit the asset (refine, retexture, remesh or UV-unwrap a model; prepare it for
+  3D printing, or one step of that: check printability, repair, a multi-color 3MF, split into
+  parts, set its real-world size, open it in a slicer; rig it; download a format it has or convert
+  it to another; a new animation for a rigged one; the slicer for a 3MF print file; turn an image
+  into 3D or edit it); each goes into the message box as a request. **View** on a chat card opens
+  its result in the Studio.
+- A task keeps the name it was submitted with in the Studio, the chat card and the job list; a
+  later `wait` or `get` on it no longer renames it after that step. Every file saved for a task is
+  kept with it, and the Studio opens the one that previews best (a GLB, then a 3MF, then an image).
+- Ways to start a request without writing it from scratch: the Studio's **New** menu and the
+  `/meshy` command offer Image to 3D (one image, or two to four views), Text to 3D, Generate an
+  image and Edit an image; `/meshy` also offers Creative Lab, where the agent asks what to make of
+  a photo. Picked images are saved under `meshy_input/` and referenced in the
+  request, which goes into the message box in the interface's language for you to finish and send.
+- A 3D viewer toolbar like Meshy's web app: Solid, Unlit and Lit render modes, the model's texture
+  channels (base color, roughness, metallic, normal, emission, ambient occlusion) as thumbnails, a
+  wireframe overlay, a skeleton view for rigged models, lighting strength and rotation, and display
+  settings (grid, statistics, auto-rotate, reset view). Face, vertex and size statistics sit in the
+  corner.
+- 3MF in the viewer, in the Studio and as a workspace preview, read the way Meshy's web viewer
+  reads it (build placement, components, material and vertex colours, flat shading, Z up), plus
+  the filament painting Bambu Studio and Orca Slicer write, in the project's filament colours: a
+  multi-color print shows its colours. A print painted finer than about 1.5 million pieces shows
+  each triangle in the filament covering most of it. Negative volumes, modifiers and support
+  blockers or enforcers of a slicer project are left out, as they are not printed.
+- Animation playback for rigged and animated models: play / pause, a timeline, playback speed, and
+  a pick of clips. A rigging result offers both its walking and running animations.
+- Recent generations on the Meshy page: the models and images on your Meshy account that are still
+  available (Meshy keeps generated files for 3 days), with a preview (animated ones play) and a way
+  to continue in a new session.
+- Services other plugins can use: `ctx.inject(['meshy'])` on the host (`version`, `status`,
+  `tasks`, `models`, `ui`, `run`, `subscribe`) and `ctx.inject(['meshyUi'])` in the browser
+  (`version`, `openTab`, `openStudioPage`). `run` takes CLI arguments and goes through the same
+  approval as the `meshy` tool.
+- A CC0 studio environment map (`assets/viewer-env.hdr`) for lighting 3D previews.
+
+### Changed
+
+- Each chat keeps its own CLI operation journal (`.meshy/sessions/<chat>/` in the workspace,
+  handed to shell calls as `DSH_MESHY_STATE_DIR`), so chats sharing a workspace no longer show
+  each other's tasks. Tasks in the earlier shared journal still appear in the chats of that
+  workspace that already existed when they ran.
+- `.glb` previews use the new viewer and studio lighting (neutral tone mapping, a single shadow
+  light, sharper textures), frame the whole model, and are still read in 2 MB windows for models up
+  to 256 MB. A failed load says why and offers a retry.
+- Models without a thumbnail (saved files, rigging results) get one from the viewer the first time
+  they are shown.
+- Plugin Manager metadata and the documentation in English and Chinese describe the new surfaces
+  and how to build on them.
+
 ## [0.3.7] - 2026-11-16
 
 ### Changed
