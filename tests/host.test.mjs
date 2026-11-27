@@ -3,7 +3,7 @@
 // real CLI.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -22,6 +22,7 @@ else if (args.startsWith("auth status")) out({ ok: true, result: { authenticated
 else if (args.startsWith("auth login --device --no-wait")) out({ ok: true, result: { status: "device_flow_started", verification_url: "https://www.meshy.ai/device?user_code=ABCD-1234", user_code: "ABCD-1234", flow_id: "AbCdEfGhIjKlMnOp", device_code: "SECRET-DEVICE-CODE", expires_in: 600 } });
 else if (args.startsWith("auth login --device-flow=")) out({ ok: true, result: { status: "logged_in" } });
 else if (args.startsWith("auth logout")) out({ ok: true, result: { status: "logged_out" } });
+else if (args.startsWith("retexture get rt-1")) out({ ok: true, result: { task: { task_id: "rt-1", status: "IN_PROGRESS", progress: 60 } } });
 else { out({ ok: false, error: { message: "unexpected " + args } }); process.exitCode = 2; }
 `);
 process.env.MESHY_DSH_CLI = fake;
@@ -48,14 +49,14 @@ test("host: the session refresher, shell env, sign-in tool and routes each wait 
   assert.deepEqual(pending.map((p) => p.deps), [["shellEnv"], ["tools"], ["connection"]]);
   assert.deepEqual(routes, [], "nothing serves pages in tui or headless, where connection never arrives");
 
-  const registered = {};
+  const registered = { tools: [] };
   pending[0].callback({ shellEnv: { register: (c) => { registered.env = c; } } });
-  pending[1].callback({ tools: { register: (t) => { registered.tool = t; } } });
+  pending[1].callback({ tools: { register: (t) => { registered.tools.push(t); } } });
   pending[2].callback(ctx);
   assert.equal(registered.env.name, "meshy");
   assert.ok(Object.keys(registered.env.variables).every((k) => k.startsWith("DSH_MESHY_")));
-  assert.equal(registered.tool.name, "meshy_sign_in");
-  assert.deepEqual(routes, ["GET /api/meshy.status", "GET /api/meshy.update", "POST /api/meshy.login", "POST /api/meshy.login.finish", "POST /api/meshy.logout"]);
+  assert.deepEqual(registered.tools.map((t) => t.name), ["meshy_sign_in", "meshy_project", "meshy_open_studio"]);
+  assert.deepEqual(routes, ["GET /api/meshy.status", "GET /api/meshy.update", "POST /api/meshy.login", "POST /api/meshy.login.finish", "POST /api/meshy.logout", "GET,POST /api/meshy.project"]);
 });
 
 test("host: shell calls get the shipped CLI and a workspace journal; the session once signed in", async () => {
@@ -191,4 +192,74 @@ test("host: finishing passes the flow id as one option value, even one that star
   assert.deepEqual(await res.json(), { status: "logged_in" });
   assert.ok(ran("auth login --device-flow=-bCdEfGhIjKlMnOp --format json --no-update-check"));
   assert.deepEqual(await (await logout()).json(), { status: "logged_out" });
+});
+
+// ---- Meshy Studio: the project tools and routes ----
+
+function studioWorkspace() {
+  const cwd = join(dir, `ws-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(join(cwd, "meshy_output/chest"), { recursive: true });
+  writeFileSync(join(cwd, "meshy_output/chest/model.glb"), "glb");
+  writeFileSync(join(cwd, "meshy_output/chest/meta.json"), JSON.stringify({ resource: "text-to-3d", task: { id: "mdl-1", status: "SUCCEEDED", face_count: 4000, created_at: 1 }, saved_files: [join(cwd, "meshy_output/chest/model.glb")] }));
+  mkdirSync(join(cwd, ".meshy/operations"), { recursive: true });
+  writeFileSync(join(cwd, ".meshy/operations/op.json"), JSON.stringify({ state: "accepted", task_id: "rt-1", resource: "retexture", started_at: new Date().toISOString() }));
+  return cwd;
+}
+
+function studioHost(cwd) {
+  const tools = {};
+  const handlers = {};
+  const ctx = {
+    effect: (execute) => execute(),
+    get: (name) => name === "sessions" ? { get: (id) => id === "s-1" ? { header: { cwd } } : undefined } : undefined,
+    connection: { fetch: { register: (r) => { handlers[r.path] = r.fetch; return () => {}; } } },
+    inject: (deps, callback) => callback({ ...ctx, shellEnv: { register() {} }, tools: { register: (t) => { tools[t.name] = t; } } }),
+  };
+  apply(ctx);
+  return { tools, project: handlers["/api/meshy.project"] };
+}
+
+test("host: meshy_project reads the session's assets and records links, labels and resolved pins", async () => {
+  const cwd = studioWorkspace();
+  const { tools } = studioHost(cwd);
+  const exec = { agent: { session: { header: { id: "s-1", cwd } } } };
+  const read = await tools.meshy_project.execute({}, exec);
+  assert.deepEqual(read.assets.map((a) => [a.id, a.status]), [["mdl-1", "succeeded"], ["rt-1", "running"]]);
+  assert.equal(read.activeAssetId, "mdl-1");
+  assert.equal(read.projectFile, "meshy_output/project.meshy");
+  assert.equal(tools.meshy_project.isConcurrencySafe({ action: "read" }), true);
+  assert.equal(tools.meshy_project.isConcurrencySafe({ action: "link" }), false);
+
+  const linked = await tools.meshy_project.execute({ action: "link", asset_id: "rt-1", parent_id: "mdl-1" }, exec);
+  assert.equal(linked.assets.find((a) => a.id === "rt-1").parentId, "mdl-1");
+  await assert.rejects(tools.meshy_project.execute({ action: "link", asset_id: "nope", parent_id: "mdl-1" }, exec), TypeError);
+  await assert.rejects(tools.meshy_project.execute({}, {}), /no session workspace/);
+
+  const opened = await tools.meshy_open_studio.execute({ asset_id: "mdl-1" }, exec);
+  assert.deepEqual([opened.projectFile, opened.assetId, opened.faces], ["meshy_output/project.meshy", "mdl-1", 4000]);
+  assert.ok(existsSync(join(cwd, "meshy_output/project.meshy")));
+});
+
+test("host: the project route resolves the session's workspace, adds progress, and refuses stale writes", async () => {
+  const cwd = studioWorkspace();
+  const { project } = studioHost(cwd);
+  await refreshSession();
+  const get = await project(new Request("http://host/api/meshy.project?session=s-1"));
+  const body = await get.json();
+  assert.equal(get.status, 200);
+  assert.equal(body.signedIn, true);
+  assert.equal(body.assets.find((a) => a.id === "rt-1").progress, 0.6, "progress read with the host's sign-in");
+  assert.ok(ran("retexture get rt-1 --format json --no-update-check"));
+
+  assert.equal((await project(new Request("http://host/api/meshy.project?session=other"))).status, 404);
+  assert.equal((await project(new Request("http://host/api/meshy.project?session=../x"))).status, 404);
+
+  const write = (change, revision) => project(new Request("http://host/api/meshy.project?session=s-1", { method: "POST", body: JSON.stringify({ change, revision }) }));
+  const ok = await write({ op: "activate", assetId: "rt-1" }, body.revision);
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.json()).project.activeAssetId, "rt-1");
+  const stale = await write({ op: "activate", assetId: "mdl-1" }, body.revision);
+  assert.equal(stale.status, 409);
+  assert.equal((await stale.json()).project.revision, body.revision + 1);
+  assert.equal((await write({ op: "exec", cmd: "rm" })).status, 400);
 });

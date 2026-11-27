@@ -49,7 +49,7 @@ test("dsh package: titles, descriptions and the icon for Plugin Manager", async 
 test("dsh package: npm pack ships the patch, display resources and every skill file", () => {
   const [{ files }] = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: root, encoding: "utf8" }));
   const packed = new Set(files.map((f) => f.path));
-  for (const path of ["package.json", "cordis.patch.yml", "locale/en.json", "locale/zh.json", "icon.svg", "lib/index.js", "lib/client.js", "lib/client.viewer.js"]) {
+  for (const path of ["package.json", "cordis.patch.yml", "locale/en.json", "locale/zh.json", "icon.svg", "lib/index.js", "lib/project.js", "lib/client.js", "lib/client.viewer.js"]) {
     assert.ok(packed.has(path), `${path} is not packed`);
   }
   assert.ok(![...packed].some((path) => /^(tests|scripts|src|\.github)\/|^tsdown\.config/.test(path)), "sources and repository tooling must not ship");
@@ -58,4 +58,9 @@ test("dsh package: npm pack ships the patch, display resources and every skill f
       assert.ok(packed.has(`skills/${skill}/${ref}`), `skills/${skill}/${ref} is not packed`);
     }
   }
+});
+
+test("dsh package: engines.dsh names the oldest DeepSeek Harness this release was tested on", () => {
+  // dsh enforces engines.dsh (with prereleases) and reports a mismatch as incompatible-version.
+  assert.match(pkg.engines?.dsh ?? "", /^>=\d+\.\d+\.\d+(-[\w.]+)?$/);
 });

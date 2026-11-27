@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.4.0] - Unreleased
+
+### Added
+
+- Meshy Studio in the right sidebar, replacing the GLB preview and laid out like the Meshy web
+  app's workspace. Tabs pick the panel: **Image** (concept art and the step to 3D), then
+  **Model**, **Print** and **Animate**, three toolsets over the same model in one viewport, and
+  **Assets**. Model offers texture or retexture, remesh, UV unwrap and export; Print offers print
+  check, make printable, multi-color, split, size and send to slicer; Animate goes from rig to
+  animations and plays the clips a file has. Tools follow the web app's rules (a smart-topology
+  model has no remesh, a white model is textured rather than retextured, a model over 300,000
+  faces is sent to remesh before rigging) and say why when one does not apply. Each tool has its
+  options (style, target faces and topology, formats, colors, height, actions) and only writes a
+  clear request into the session's message: nothing is spent from the Studio itself, the agent
+  quotes the cost and waits for a yes, as before. Textured, clay and wireframe display, progress
+  of running tasks, side-by-side comparison.
+- **Assets**: every asset of the session grouped by the model it came from (or as one grid),
+  with search, filters (images, untextured, textured, animation, starred, archived), rename,
+  star, mention in the chat and archive (the files stay). An asset is named after its label, else
+  the task's name or prompt, else its file.
+- "Point the agent here" captures the current view to `.meshy/snapshots/`, records a pin and puts
+  the snapshot and a description of the view into the message.
+- The session's Meshy project, `meshy_output/project.meshy`, kept by the host: assets derived from
+  the CLI's download sidecars and operation journal (a refine is linked to its preview from the
+  task itself), plus the current asset, names, links, stars, the archive and pins, with revision
+  checks.
+- Tools `meshy_project` and `meshy_open_studio`, each with its own card in the chat.
+- `engines.dsh` declares the oldest DeepSeek Harness tested: 0.2.2-rc.5.
+
 ## [0.3.7] - 2026-11-16
 
 ### Changed

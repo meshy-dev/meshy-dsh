@@ -1,6 +1,6 @@
 {
   "name": "meshy-dsh",
-  "version": "0.3.7",
+  "version": "0.4.0",
   "description": "Meshy skills for DeepSeek Harness: textured, rigged and animated 3D models or print-ready files from text or images, through meshy-cli, with a Meshy settings page and a 3D preview for GLB files.",
   "keywords": [
     "dsh-plugin",
@@ -24,6 +24,9 @@
   },
   "bugs": "https://github.com/meshy-dev/meshy-dsh/issues",
   "license": "MIT",
+  "engines": {
+    "dsh": ">=0.2.2-rc.5"
+  },
   "type": "module",
   "publishConfig": {
     "access": "public"

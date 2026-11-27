@@ -58,6 +58,44 @@ neither; the skills work the same everywhere.
 
 ![The Meshy page in DeepSeek Harness: account, credits and example requests](assets/screenshots/meshy-page.png)
 
+## Meshy Studio
+
+Since 0.4.0 the 3D preview in the right sidebar is **Meshy Studio**, a light 3D workspace laid out
+like the Meshy web app's and sharing one project with the agent. It opens from a `.glb` file or model card in the session, from
+`meshy_output/project.meshy`, or from the card the agent's `meshy_open_studio` call leaves in the
+chat (a fresh result opens it by itself).
+
+- **Project.** The plugin's host derives every asset of the session from what the CLI already
+  leaves in the workspace: the sidecar of an `-o` download (`meta.json`, `<stem>_meta.json`) and
+  tasks the operation journal (`.meshy/operations/`) accepted but nothing downloaded yet. The
+  agent keeps running the CLI through its shell; the skills need no change. What only the user
+  and the agent know (the asset being looked at, names, source links, stars, the archive, pins) the host writes to
+  `meshy_output/project.meshy`. Every write bumps `revision`, and a write against an older one is
+  refused with the current project. A damaged file is set aside and rebuilt from the workspace.
+- **Tabs.** Image (concept art; make a 3D model from one), then Model, Print and Animate, three
+  toolsets over the same model, and Assets. As in the web app, Model has texture or retexture,
+  remesh, UV unwrap and export; Print has print check, make printable, multi-color, split, size
+  and send to slicer; Animate rigs the model, then adds animations. A tool that does not apply
+  says why (a smart-topology model needs no remesh, rigging takes at most 300,000 faces).
+- **Viewport.** Textured, clay or wireframe display, reset and auto-rotate, face count and file
+  size, and the clips of an animated file to play. A running task shows its progress (read with
+  the host's sign-in) and turns into the model when it lands, with no refresh. Below it, the
+  assets made from the same source; compare two side by side and use one.
+- **Tools.** Each has its options (style, target faces, formats, colors, height, actions) and
+  only writes a clear request, with the asset id and file path, into the session's message for
+  you to send; the agent then quotes the cost and waits for your yes as the skills say. There is
+  no second way to spend credits.
+- **Assets.** Every asset grouped by the model it came from, or as one grid; search, filter,
+  rename, star, mention in the chat, archive (hidden; the files stay).
+- **Point the agent here.** Captures the current view to `.meshy/snapshots/`, records a pin in the
+  project and writes the snapshot's mention and a description of the view into the message. The
+  agent reads the pin with `meshy_project` and marks it done once handled.
+
+Two tools join `meshy_sign_in`: `meshy_project` (read the project, link a version to its source,
+name an asset, resolve a pin, switch the current asset) and `meshy_open_studio`. Both show as cards
+in the chat through `tool.call.toolview`. Needs DeepSeek Harness 0.2.2-rc.5 or later
+(`engines.dsh`).
+
 ## How it works
 
 [`cordis.patch.yml`](cordis.patch.yml) mounts one more instance of dsh's built-in filesystem
@@ -66,8 +104,9 @@ and loads the package itself: `lib/index.js` keeps the sign-in fresh and gives e
 the CLI this package depends on (`DSH_MESHY_NODE`, `DSH_MESHY_CLI`), the session
 (`DSH_MESHY_CREDENTIAL`, `DSH_MESHY_REGION`, `DSH_MESHY_SUBJECT`, never the refresh token) and a
 `.meshy` directory in the session's workspace for the CLI's operation journal
-(`DSH_MESHY_STATE_DIR`); it registers the `meshy_sign_in` tool, and in Web and Desktop serves four
-authenticated routes that run the CLI with fixed arguments. `lib/client.js` (built from `src/client/`)
+(`DSH_MESHY_STATE_DIR`); it registers the `meshy_sign_in`, `meshy_project` and `meshy_open_studio`
+tools, and in Web and Desktop serves authenticated routes: account routes that run the CLI with
+fixed arguments, and the project route, which takes only a closed set of changes (`lib/project.js`). `lib/client.js` (built from `src/client/`)
 is the browser half, with three.js in a separate `lib/client.viewer.js` loaded on first use. A skill of the same name in
 your project's `.dsh/skills` or `.agents/skills` takes precedence. `locale/` and `icon.svg` are
 what dsh's Plugin Manager shows.

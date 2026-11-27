@@ -28,9 +28,22 @@ dsh 不会自动更新已安装的插件，重新安装之前一直是你当初�
 
 ![DeepSeek Harness 里的 Meshy 页面：账号、积分和示例需求](assets/screenshots/meshy-page.png)
 
+## Meshy Studio
+
+从 0.4.0 起，右侧栏的 3D 预览升级为 **Meshy Studio**：按 Meshy 网页版工作区的结构做的轻量 3D 工作区，和 agent 共用同一份项目状态。打开方式有三种：点会话里的 `.glb` 文件或模型卡片；点 `meshy_output/project.meshy`；点 agent 调用 `meshy_open_studio` 后出现的卡片（刚生成的结果会自动打开）。
+
+- **项目**：插件宿主从工作区里 CLI 已经留下的文件推导出这次会话的全部资产：`-o` 下载时写的 `meta.json` / `<文件名>_meta.json`，以及 `.meshy/operations/` 里已提交但还没下载的任务。agent 照旧通过 shell 调 CLI，skill 不用改。只有用户和 agent 才知道的信息（当前看的资产、名字、来源关系、收藏、归档、标注）由宿主写进 `meshy_output/project.meshy`。每次写入都会让 `revision` 加一，带着旧 revision 的写入会被拒绝，同时返回最新状态。文件损坏时会另存一份，再从工作区重新推导。
+- **标签页**：图像（概念图，可以用它生成 3D 模型），然后是模型、打印、动画三组工具，对着同一个模型，最后是资产。和网页版一样：模型里有贴图或重新贴图、重拓扑、UV 展开、导出；打印里有打印检查、修复为可打印、多色打印、拆分、尺寸、发送到切片软件；动画里先绑定骨骼，再添加动画。用不了的工具会说明原因（智能拓扑模型不需要重拓扑，绑骨最多 300,000 个面）。
+- **视口**：可切换带贴图、白模、线框三种显示，支持复位和自动旋转，显示面数和文件大小，带动画的文件可以选片段播放。生成中的任务会显示进度（宿主用自己的登录态读取），完成后自动换成模型，不用手动刷新。视口下方是同源的相关资产，可以并排对比两个版本并"设为当前"。
+- **工具**：每个工具有自己的选项（风格、目标面数、格式、颜色数、高度、动作），只会把一句带资产 id 和文件路径的明确需求写进当前会话的输入框，由你发送；之后 agent 按 skill 的流程报价、等你确认，没有第二条执行路径。
+- **资产**：全部资产按来源模型分组，也可以平铺；支持搜索、筛选、重命名、收藏、引用到对话、归档（只是隐藏，文件还在）。
+- **指给 Agent 看**：截下当前视角，存到 `.meshy/snapshots/`，在项目里记一条标注，并把截图引用和视角描述写进输入框。agent 用 `meshy_project` 读到这条标注，处理完后标为已处理。
+
+agent 侧新增两个工具：`meshy_project`（读项目、关联来源、命名、处理标注、切换当前资产）和 `meshy_open_studio`。两者都通过 `tool.call.toolview` 显示为对话卡片。需要 DeepSeek Harness 0.2.2-rc.5 或更高版本（`engines.dsh`）。
+
 ## 工作方式
 
-[`cordis.patch.yml`](cordis.patch.yml) 再挂一个 dsh 内置的文件系统 skill provider，只扫描本包的 `skills/` 目录，所以这些 skill 和本地 skill 的加载方式完全一样；同时加载本包自身：`lib/index.js` 负责刷新登录态，并给每次 shell 调用提供本包依赖的 CLI（`DSH_MESHY_NODE`、`DSH_MESHY_CLI`）、登录态（`DSH_MESHY_CREDENTIAL`、`DSH_MESHY_REGION`、`DSH_MESHY_SUBJECT`，从不包含 refresh token），以及会话 workspace 里给 CLI 操作日志用的 `.meshy` 目录（`DSH_MESHY_STATE_DIR`）；它还注册 `meshy_sign_in` 工具，并在 Web 和 Desktop 里提供四个需要鉴权的接口，用固定参数调用 Meshy CLI；`lib/client.js`（由 `src/client/` 构建）是浏览器端，three.js 单独放在首次使用时才加载的 `lib/client.viewer.js` 里。项目里 `.dsh/skills` 或 `.agents/skills` 下的同名 skill 优先。`locale/` 和 `icon.svg` 是 dsh 插件管理页显示的名称、简介和图标。
+[`cordis.patch.yml`](cordis.patch.yml) 再挂一个 dsh 内置的文件系统 skill provider，只扫描本包的 `skills/` 目录，所以这些 skill 和本地 skill 的加载方式完全一样；同时加载本包自身：`lib/index.js` 负责刷新登录态，并给每次 shell 调用提供本包依赖的 CLI（`DSH_MESHY_NODE`、`DSH_MESHY_CLI`）、登录态（`DSH_MESHY_CREDENTIAL`、`DSH_MESHY_REGION`、`DSH_MESHY_SUBJECT`，从不包含 refresh token），以及会话 workspace 里给 CLI 操作日志用的 `.meshy` 目录（`DSH_MESHY_STATE_DIR`）；它还注册 `meshy_sign_in`、`meshy_project` 和 `meshy_open_studio` 三个工具，并在 Web 和 Desktop 里提供需要鉴权的接口：用固定参数调用 Meshy CLI 的账号接口，以及只接受固定几种修改的项目接口（`lib/project.js`）；`lib/client.js`（由 `src/client/` 构建）是浏览器端，three.js 单独放在首次使用时才加载的 `lib/client.viewer.js` 里。项目里 `.dsh/skills` 或 `.agents/skills` 下的同名 skill 优先。`locale/` 和 `icon.svg` 是 dsh 插件管理页显示的名称、简介和图标。
 
 `skills/` 是 [meshy-3d-agent](https://github.com/meshy-dev/meshy-3d-agent) 里 CLI skill 的副本；那个仓库负责维护，也服务其他所有 agent 宿主。修改请提到那边。
 
