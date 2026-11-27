@@ -1,7 +1,8 @@
 // The bundle's patch points dsh's filesystem skill provider at the package's skills/ and
 // loads the package's own row (lib/index.js and the browser half, lib/client.js). These
 // checks cover what dsh reads without running it: the manifest, display metadata, the
-// client module wrappers and the packed file list. No CLI or network needed.
+// client module wrappers, public-repo hygiene, changelog alignment and the packed file list.
+// No CLI or network needed.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -46,16 +47,51 @@ test("dsh package: titles, descriptions and the icon for Plugin Manager", async 
   assert.match(await readFile(icon, "utf8"), /^<svg[\s>]/);
 });
 
-test("dsh package: npm pack ships the patch, display resources and every skill file", () => {
+test("dsh package: npm pack ships the patch, display resources, studio HDR and every skill file", () => {
   const [{ files }] = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: root, encoding: "utf8" }));
   const packed = new Set(files.map((f) => f.path));
-  for (const path of ["package.json", "cordis.patch.yml", "locale/en.json", "locale/zh.json", "icon.svg", "lib/index.js", "lib/client.js", "lib/client.viewer.js"]) {
+  for (const path of [
+    "package.json",
+    "cordis.patch.yml",
+    "locale/en.json",
+    "locale/zh.json",
+    "icon.svg",
+    "assets/viewer-env.hdr",
+    "lib/index.js",
+    "lib/client.js",
+    "lib/client.viewer.js",
+  ]) {
     assert.ok(packed.has(path), `${path} is not packed`);
   }
   assert.ok(![...packed].some((path) => /^(tests|scripts|src|\.github)\/|^tsdown\.config/.test(path)), "sources and repository tooling must not ship");
+  assert.ok(![...packed].some((path) => /^assets\/screenshots\//.test(path)), "README screenshots must not bloat the npm tarball");
   for (const skill of SKILLS) {
     for (const ref of ["SKILL.md", "references/setup.md", "references/troubleshooting.md"]) {
       assert.ok(packed.has(`skills/${skill}/${ref}`), `skills/${skill}/${ref} is not packed`);
+    }
+  }
+});
+
+test("dsh package: package.json version matches the top CHANGELOG.md heading", async () => {
+  const changelog = await readFile(new URL("CHANGELOG.md", root), "utf8");
+  const match = changelog.match(/^## \[([^\]]+)\]/m);
+  assert.ok(match, "CHANGELOG.md must have a top version heading like ## [0.4.0]");
+  assert.equal(match[1], pkg.version, `CHANGELOG.md top heading (${match[1]}) must match package.json (${pkg.version})`);
+});
+
+test("dsh package: public docs and metadata contain no internal terms", async () => {
+  // Ticket ids, development hosts and routes, and staff addresses.
+  const forbidden = [
+    /\b[A-Z]{2,6}-\d{2,}\b/,
+    /localhost|127\.0\.0\.1|\bstaging\b/i,
+    /\/web\//,
+    /@meshy\.(?:ai|cn)\b/i,
+  ];
+
+  for (const rel of ["README.md", "README.zh.md", "CHANGELOG.md", "locale/en.json", "locale/zh.json", "package.json"]) {
+    const content = await readFile(new URL(rel, root), "utf8");
+    for (const re of forbidden) {
+      assert.doesNotMatch(content, re, `${rel} must not contain internal term matching ${re}`);
     }
   }
 });
