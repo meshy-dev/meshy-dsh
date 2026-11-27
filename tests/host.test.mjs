@@ -30,7 +30,8 @@ const out = (o) => process.stdout.write(JSON.stringify(o));
 if (args === "--version") process.stdout.write("0.8.8\\n");
 else if (args === "resources --format json --no-update-check") out(${JSON.stringify(RESOURCES)});
 else if (args.startsWith("auth status --offline --show-token")) out({ ok: true, result: { authenticated: true, source: "file", token: "msy_at_host_session", subject: "user-9", expires_at: Date.now() + 3600000, base_url_v1: "https://api.meshy.cn/openapi/v1", credentials_file: ${JSON.stringify(join(store, "credentials.v2.json"))} } });
-else if (args.startsWith("auth status")) out({ ok: true, result: { authenticated: true, verified: true, source: "file", credential: "msy_at_U…abcd", account: { name: "Ada Lovelace", email: "ada@example.com" }, base_url_v1: "https://api.meshy.cn/openapi/v1", balance: { balance: 1085, monthly_credits: 1000 }, profiles: ["default"] } });
+else if (args.startsWith("auth status") && fs.existsSync(${JSON.stringify(join(dir, "api-key-login"))})) out({ ok: true, result: { authenticated: true, verified: true, source: "file", credential: "msy_Abcd…wxyz", account: null, expires_at: null, base_url_v1: "https://api.meshy.ai/openapi/v1", balance: { balance: 5 }, profiles: ["default"] } });
+else if (args.startsWith("auth status")) out({ ok: true, result: { authenticated: true, verified: true, source: "file", credential: "eyJhbGci…abcd", expires_at: Date.now() + 3600000, account: { name: "Ada Lovelace", email: "ada@example.com" }, base_url_v1: "https://api.meshy.cn/openapi/v1", balance: { balance: 1085, monthly_credits: 1000 }, profiles: ["default"] } });
 else if (args.startsWith("auth login --device --no-wait")) out({ ok: true, result: { status: "device_flow_started", verification_url: "https://www.meshy.ai/device?user_code=ABCD-1234", user_code: "ABCD-1234", flow_id: "AbCdEfGhIjKlMnOp", device_code: "SECRET-DEVICE-CODE", expires_in: 600 } });
 else if (args.startsWith("auth login --device-flow=")) out({ ok: true, result: { status: "logged_in" } });
 else if (args.startsWith("auth logout")) out({ ok: true, result: { status: "logged_out" } });
@@ -179,6 +180,16 @@ test("host: status reports the CLI, the account, the site and the credits, never
       hint: null,
     },
   });
+});
+
+test("host: status tells an API key sign-in from a browser one", async () => {
+  writeFileSync(join(dir, "api-key-login"), "");
+  try {
+    const body = await (await status()).json();
+    assert.equal(body.auth.method, "apiKey");
+  } finally {
+    rmSync(join(dir, "api-key-login"));
+  }
 });
 
 const DAY = 24 * 3600_000;
